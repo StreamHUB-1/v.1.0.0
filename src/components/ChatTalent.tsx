@@ -53,9 +53,37 @@ export const ChatTalent: React.FC<ChatTalentProps> = ({ currentUser, onBack, onI
             <ArrowLeft size={24} />
           </button>
           <h2 className="text-[#e9edef] font-bold text-lg">Pesan Masuk</h2>
+          
+          {/* TOMBOL PENCARIAN & MENU DI SIDEBAR (SUDAH AKTIF) */}
           <div className="ml-auto flex gap-4 text-gray-400">
-             <Search size={20} className="cursor-pointer hover:text-white" />
-             <MoreVertical size={20} className="cursor-pointer hover:text-white" />
+             <Search 
+                size={20} 
+                className="cursor-pointer hover:text-white transition-colors" 
+                onClick={() => {
+                   if ((window as any).Swal) {
+                       (window as any).Swal.fire({
+                           toast: true, position: 'top', icon: 'info',
+                           title: 'Fitur Pencarian segera hadir!',
+                           showConfirmButton: false, timer: 2000,
+                           background: '#202c33', color: '#e9edef'
+                       });
+                   }
+                }}
+             />
+             <MoreVertical 
+                size={20} 
+                className="cursor-pointer hover:text-white transition-colors"
+                onClick={() => {
+                   if ((window as any).Swal) {
+                       (window as any).Swal.fire({
+                           toast: true, position: 'top', icon: 'info',
+                           title: 'Menu Opsi segera hadir!',
+                           showConfirmButton: false, timer: 2000,
+                           background: '#202c33', color: '#e9edef'
+                       });
+                   }
+                }}
+             />
           </div>
         </div>
 
@@ -124,7 +152,6 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom }: { currentUser: 
   useEffect(() => {
     const handleScroll = () => {
       if (messagesEndRef.current) {
-        // Gunakan 'auto' untuk load awal, 'smooth' untuk pesan baru
         const isInitialLoad = safeMessages.length <= 15; 
         messagesEndRef.current.scrollIntoView({ 
           behavior: isInitialLoad ? 'auto' : 'smooth',
@@ -132,7 +159,6 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom }: { currentUser: 
         });
       }
     };
-
     const timer = setTimeout(handleScroll, 150);
     return () => clearTimeout(timer);
   }, [safeMessages.length, isCounterpartTyping]);
@@ -179,6 +205,38 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom }: { currentUser: 
 
   const getReplyMessage = (replyId: number) => safeMessages.find((m: any) => m.id === replyId);
 
+  // FUNGSI UNTUK MENGAKHIRI CHAT (TOMBOL TITIK TIGA DI ROOM)
+  const handleEndChat = () => {
+      if ((window as any).Swal) {
+          (window as any).Swal.fire({
+              title: 'Akhiri Sesi Chat?',
+              text: "Sesi ini akan ditutup dan kamu akan kembali ke daftar pesan.",
+              icon: 'warning',
+              showCancelButton: true,
+              confirmButtonColor: '#00a884',
+              cancelButtonColor: '#2a3942',
+              confirmButtonText: 'Ya, Akhiri',
+              cancelButtonText: 'Batal',
+              background: '#202c33',
+              color: '#e9edef'
+          }).then((result: any) => {
+              if (result.isConfirmed) {
+                  // Munculkan notifikasi sukses
+                  (window as any).Swal.fire({
+                      title: 'Sesi Diakhiri',
+                      icon: 'success',
+                      showConfirmButton: false,
+                      timer: 1500,
+                      background: '#202c33',
+                      color: '#e9edef'
+                  });
+                  // Keluar dari room
+                  onBack(); 
+              }
+          });
+      }
+  };
+
   return (
     <div className="flex flex-col h-full bg-[#0b141a] z-[100] relative w-full max-w-4xl mx-auto border-x border-gray-800">
       
@@ -206,7 +264,8 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom }: { currentUser: 
             </div>
           </div>
         </div>
-        <button className="text-gray-400 hover:text-white">
+        {/* TOMBOL TITIK TIGA DI ROOM CHAT */}
+        <button onClick={handleEndChat} className="text-gray-400 hover:text-white transition-colors">
           <MoreVertical size={20} />
         </button>
       </div>

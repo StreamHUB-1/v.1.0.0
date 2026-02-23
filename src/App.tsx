@@ -394,7 +394,7 @@ export default function App() {
             className="text-center mb-10 z-10"
         >
           <h1 className="text-6xl md:text-8xl font-black text-white mb-2 uppercase tracking-tighter">STREAM<span className="text-primary">HUB</span></h1>
-          <p className="text-gray-500 font-bold uppercase tracking-widest text-sm">Premium Video & Chatting ( RPS > CS )</p>
+          <p className="text-gray-500 font-bold uppercase tracking-widest text-sm">Premium Video & Chatting RPS & CS</p>
         </motion.div>
         
         {/* Menggunakan Framer Motion */}

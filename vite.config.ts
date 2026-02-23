@@ -6,10 +6,10 @@ import { VitePWA } from 'vite-plugin-pwa';
 export default defineConfig({
   plugins: [
     react(),
-    // SETTINGAN PWA DITAMBAHKAN DI SINI
     VitePWA({
       registerType: 'autoUpdate', 
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      // Hanya menyertakan aset yang benar-benar ada di folder public kamu
+      includeAssets: ['apple-touch-icon.png', 'favicon-32x32.png', 'favicon-16x16.png'],
       manifest: {
         name: 'StreamHub Premium',
         short_name: 'StreamHub',
@@ -20,26 +20,22 @@ export default defineConfig({
         orientation: 'portrait',
         icons: [
           {
-            src: 'pwa-192x192.png',
+            src: 'android-chrome-192x192.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any' // Standar ikon
           },
           {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png'
-          },
-          {
-            src: 'pwa-512x512.png',
+            src: 'android-chrome-512x512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'maskable' // Agar ikon penuh dan bagus di Android/iOS
           }
         ]
       }
     })
   ],
-  // SETTINGAN ASLI KAMU UNTUK LUCIDE-REACT TETAP DIPERTAHANKAN
+  // Optimasi dependensi agar ikon lucide-react tidak error
   optimizeDeps: {
     exclude: ['lucide-react'],
   },

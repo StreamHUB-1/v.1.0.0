@@ -1,0 +1,122 @@
+import { Video } from './types';
+
+// Helper to generate random dates within the last year
+const getRandomDate = () => {
+  const start = new Date(2023, 0, 1);
+  const end = new Date();
+  const date = new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
+  return date.toISOString().split('T')[0];
+};
+
+export const MOCK_VIDEOS: Video[] = [
+  {
+    id: '1',
+    title: 'Cinematic Mountain Drone Footage',
+    description: 'Breathtaking 4K drone shots of the Swiss Alps during sunset. Perfect for nature lovers.',
+    thumbnailUrl: 'https://picsum.photos/id/1018/600/400',
+    videoUrl: 'https://example.com/video1.mp4',
+    duration: '12:45',
+    views: 15420,
+    uploadDate: getRandomDate(),
+    category: 'Nature',
+    uploader: 'DroneMaster',
+  },
+  {
+    id: '2',
+    title: 'Advanced React Hooks Tutorial',
+    description: 'Deep dive into useMemo, useCallback, and custom hooks for performance optimization.',
+    thumbnailUrl: 'https://picsum.photos/id/1/600/400',
+    videoUrl: 'https://example.com/video2.mp4',
+    duration: '45:10',
+    views: 8900,
+    uploadDate: getRandomDate(),
+    category: 'Tech',
+    uploader: 'CodeWizard',
+  },
+  {
+    id: '3',
+    title: 'Urban Photography Tips 2024',
+    description: 'How to capture the soul of the city with street photography techniques.',
+    thumbnailUrl: 'https://picsum.photos/id/1076/600/400',
+    videoUrl: 'https://example.com/video3.mp4',
+    duration: '08:30',
+    views: 32000,
+    uploadDate: getRandomDate(),
+    category: 'Education',
+    uploader: 'ShutterBug',
+  },
+  {
+    id: '4',
+    title: 'Top 10 Gaming Moments',
+    description: 'Compilation of the best plays from the recent tournament.',
+    thumbnailUrl: 'https://picsum.photos/id/39/600/400',
+    videoUrl: 'https://example.com/video4.mp4',
+    duration: '10:15',
+    views: 120000,
+    uploadDate: getRandomDate(),
+    category: 'Gaming',
+    uploader: 'ProGamer',
+  },
+  {
+    id: '5',
+    title: 'Minimalist Workspace Setup',
+    description: 'Tour of my productivity focused desk setup.',
+    thumbnailUrl: 'https://picsum.photos/id/3/600/400',
+    videoUrl: 'https://example.com/video5.mp4',
+    duration: '15:20',
+    views: 5400,
+    uploadDate: getRandomDate(),
+    category: 'Tech',
+    uploader: 'TechMinimalist',
+  },
+  {
+    id: '6',
+    title: 'Easy Pasta Recipe',
+    description: 'Cook a delicious meal in under 20 minutes.',
+    thumbnailUrl: 'https://picsum.photos/id/292/600/400',
+    videoUrl: 'https://example.com/video6.mp4',
+    duration: '05:45',
+    views: 45000,
+    uploadDate: getRandomDate(),
+    category: 'Lifestyle',
+    uploader: 'ChefMario',
+  },
+  {
+    id: '7',
+    title: 'Car Engine Explanation',
+    description: 'How a V8 engine works, explained simply.',
+    thumbnailUrl: 'https://picsum.photos/id/111/600/400',
+    videoUrl: 'https://example.com/video7.mp4',
+    duration: '22:10',
+    views: 6700,
+    uploadDate: getRandomDate(),
+    category: 'Education',
+    uploader: 'MechanicMike',
+  },
+  {
+    id: '8',
+    title: 'Funny Cat Compilation',
+    description: 'The ultimate cure for sadness.',
+    thumbnailUrl: 'https://picsum.photos/id/40/600/400',
+    videoUrl: 'https://example.com/video8.mp4',
+    duration: '03:50',
+    views: 500000,
+    uploadDate: getRandomDate(),
+    category: 'Entertainment',
+    uploader: 'MeowTube',
+  },
+  {
+    id: '9',
+    title: 'Future of AI',
+    description: 'What happens next in the world of Artificial Intelligence?',
+    thumbnailUrl: 'https://picsum.photos/id/60/600/400',
+    videoUrl: 'https://example.com/video9.mp4',
+    duration: '55:00',
+    views: 11000,
+    uploadDate: getRandomDate(),
+    category: 'Tech',
+    uploader: 'FutureThink',
+  },
+];
+
+export const CATEGORIES = ['All', 'Tech', 'Nature', 'Gaming', 'Education', 'Lifestyle', 'Entertainment'];

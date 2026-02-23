@@ -17,7 +17,7 @@ export interface ChatMessage {
 }
 
 // ==========================================
-// 1. HOOK UTAMA: ROOM CHAT (SUARA AKTIF DI SINI)
+// 1. HOOK UTAMA: ROOM CHAT
 // ==========================================
 export const useTalentChat = (currentUser: User, activeSessionId: string | null) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -74,13 +74,11 @@ export const useTalentChat = (currentUser: User, activeSessionId: string | null)
               const newMsg = payload.new as ChatMessage;
               setMessages(prev => [...prev, newMsg]);
 
-              // --- LOGIKA SUARA: HANYA SAAT DI DALAM ROOM ---
               if (newMsg.sender_username !== currentUser.username) {
-                  // Putar suara tres.mp3
+                  // Bunyi saat sedang di dalam room
                   const audio = new Audio('/sounds/tres.mp3');
-                  audio.play().catch(() => console.log("Autoplay blocked: Butuh interaksi user pertama kali."));
-
-                  // Tandai langsung terbaca karena kita sedang di dalam room
+                  audio.play().catch(() => {});
+                  
                   supabase.from('private_chats').update({ is_viewed: true }).eq('id', newMsg.id).then();
               }
           } else if (payload.eventType === 'UPDATE') {
@@ -101,15 +99,6 @@ export const useTalentChat = (currentUser: User, activeSessionId: string | null)
       .on('presence', { event: 'sync' }, () => {
           const state = roomChannel.presenceState();
           setIsCounterpartOnline(Object.keys(state).some(key => key !== currentUser.username));
-      })
-      .on('presence', { event: 'join' }, ({ key }) => {
-          if (key !== currentUser.username) setIsCounterpartOnline(true);
-      })
-      .on('presence', { event: 'leave' }, ({ key }) => {
-          if (key !== currentUser.username) {
-              const state = roomChannel.presenceState();
-              setIsCounterpartOnline(Object.keys(state).some(k => k !== currentUser.username));
-          }
       })
       .subscribe(async (status) => {
           if (status === 'SUBSCRIBED') {
@@ -199,7 +188,7 @@ export const useTalentChat = (currentUser: User, activeSessionId: string | null)
 };
 
 // =========================================================================
-// 2. HOOK SIDEBAR: NOTIFIKASI VISUAL & GETAR (DI LUAR ROOM)
+// 2. HOOK SIDEBAR: NOTIFIKASI VISUAL + SUARA + GETAR
 // =========================================================================
 export const useSidebarData = (currentUser: User, rawSessions: any[], activeSessionId: string | null) => {
     const [enrichedSessions, setEnrichedSessions] = useState<any[]>([]);
@@ -228,15 +217,10 @@ export const useSidebarData = (currentUser: User, rawSessions: any[], activeSess
                 const lastMsg = sessionMsgs[0]; 
                 const unreadCount = sessionMsgs.filter(m => m.sender_username !== currentUser.username && !m.is_viewed).length;
 
-                let lastText = 'Sesi chat aktif';
-                if (lastMsg) {
-                    lastText = lastMsg.message ? lastMsg.message : (lastMsg.media_type ? `📎 Media` : 'Sesi chat aktif');
-                }
-
                 return {
                     ...session,
                     last_message_time: lastMsg ? new Date(lastMsg.created_at).getTime() : new Date(session.started_at).getTime(),
-                    last_message_text: lastText,
+                    last_message_text: lastMsg?.message || (lastMsg?.media_type ? '📎 Media' : 'Sesi chat aktif'),
                     unread_count: unreadCount
                 };
             });
@@ -262,9 +246,16 @@ export const useSidebarData = (currentUser: User, rawSessions: any[], activeSess
 
                          if (newMsg.sender_username !== currentUser.username) {
                              if (activeSessionRef.current !== newMsg.session_id) {
-                                 // JIKA DI LUAR ROOM: GETAR & SWAL SAJA (TANPA SUARA)
+                                 
+                                 // --- LOGIKA NOTIFIKASI LENGKAP ---
+                                 // 1. Bunyikan tres.mp3
+                                 const audio = new Audio('/sounds/tres.mp3');
+                                 audio.play().catch(() => {});
+
+                                 // 2. Getar HP
                                  if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
                                  
+                                 // 3. Popup Swal
                                  if ((window as any).Swal) {
                                      (window as any).Swal.fire({
                                          toast: true,
@@ -272,7 +263,7 @@ export const useSidebarData = (currentUser: User, rawSessions: any[], activeSess
                                          icon: 'success',
                                          iconColor: '#00a884',
                                          title: `Pesan baru dari ${s.counterpart_name}`,
-                                         text: s.last_message_text.length > 30 ? s.last_message_text.substring(0, 30) + '...' : s.last_message_text,
+                                         text: s.last_message_text,
                                          showConfirmButton: false,
                                          timer: 4000,
                                          background: '#202c33',

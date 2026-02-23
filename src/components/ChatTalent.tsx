@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, CheckCheck, Paperclip, Send, MoreVertical, Search, Loader2, MessageCircle, Plus, Smile, X } from 'lucide-react';
+import { ArrowLeft, CheckCheck, Send, MoreVertical, Search, Loader2, MessageCircle, Plus, Smile, X } from 'lucide-react';
 import EmojiPicker, { Theme } from 'emoji-picker-react';
 import { User } from '../types';
 import dayjs from 'dayjs';
@@ -13,7 +13,7 @@ interface ChatTalentProps {
 }
 
 // ==========================================
-// 1. KOMPONEN UTAMA: PENGATUR HALAMAN CHAT
+// 1. KOMPONEN UTAMA: DAFTAR SESI CHAT
 // ==========================================
 export const ChatTalent: React.FC<ChatTalentProps> = ({ currentUser, onBack, onImageZoom }) => {
   const [rawSessions, setRawSessions] = useState<any[]>([]);
@@ -104,7 +104,7 @@ export const ChatTalent: React.FC<ChatTalentProps> = ({ currentUser, onBack, onI
 
 
 // ==========================================
-// 2. KOMPONEN RUANG CHAT (DENGAN GELEMBUNG TYPING)
+// 2. KOMPONEN RUANG CHAT (ROOM)
 // ==========================================
 const ChatRoom = ({ currentUser, session, onBack, onImageZoom }: { currentUser: User, session: any, onBack: () => void, onImageZoom?: (url: string) => void }) => {
   
@@ -120,16 +120,23 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom }: { currentUser: 
   const fileInputRef = useRef<HTMLInputElement>(null);
   let pressTimer: NodeJS.Timeout;
 
-  // Scroll otomatis ke bawah jika ada pesan baru ATAU jika lawan mulai mengetik
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
+  // FIX SCROLL: Menggunakan timeout agar stabil di Web Browser & PWA
   useEffect(() => {
-    scrollToBottom();
-  }, [safeMessages, isCounterpartTyping]);
+    const handleScroll = () => {
+      if (messagesEndRef.current) {
+        // Gunakan 'auto' untuk load awal, 'smooth' untuk pesan baru
+        const isInitialLoad = safeMessages.length <= 15; 
+        messagesEndRef.current.scrollIntoView({ 
+          behavior: isInitialLoad ? 'auto' : 'smooth',
+          block: 'end' 
+        });
+      }
+    };
 
-  // Fungsi Deteksi Ngetik User
+    const timer = setTimeout(handleScroll, 150);
+    return () => clearTimeout(timer);
+  }, [safeMessages.length, isCounterpartTyping]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       setInputText(e.target.value);
       sendTypingEvent(e.target.value.length > 0);
@@ -175,7 +182,7 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom }: { currentUser: 
   return (
     <div className="flex flex-col h-full bg-[#0b141a] z-[100] relative w-full max-w-4xl mx-auto border-x border-gray-800">
       
-      {/* HEADER RUANG CHAT */}
+      {/* HEADER: STATUS ONLINE & TYPING */}
       <div className="bg-[#202c33] px-4 py-3 flex items-center justify-between z-20 shadow-md border-b border-gray-800 relative">
         <div className="flex items-center gap-4">
           <button onClick={onBack} className="text-gray-400 hover:text-white transition-colors">
@@ -187,20 +194,11 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom }: { currentUser: 
             </div>
             <div className="flex flex-col">
               <h3 className="text-[#e9edef] font-bold text-sm leading-tight">{session.counterpart_name || 'User'}</h3>
-              
-              {/* STATUS HEADER */}
               <div className="min-h-[16px]">
                   {isCounterpartTyping ? (
-                      <div className="flex items-center gap-1 text-[#00a884] font-bold">
-                          <span className="text-[11px] italic">mengetik</span>
-                          <div className="flex items-center gap-[2px] mt-1.5">
-                              <span className="w-1 h-1 bg-[#00a884] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                              <span className="w-1 h-1 bg-[#00a884] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                              <span className="w-1 h-1 bg-[#00a884] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-                          </div>
-                      </div>
+                      <p className="text-[#00a884] text-[11px] font-bold italic tracking-wide animate-pulse">mengetik...</p>
                   ) : isCounterpartOnline ? (
-                      <p className="text-white/80 text-[11px]">Online</p>
+                      <p className="text-white/90 text-[11px] font-medium">Online</p>
                   ) : (
                       <p className="text-white/50 text-[11px]">Terakhir dilihat {dayjs(session.last_message_time).format('HH:mm')}</p>
                   )}
@@ -213,7 +211,7 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom }: { currentUser: 
         </button>
       </div>
 
-      {/* AREA PESAN DENGAN BACKGROUND TEXTURE WA */}
+      {/* AREA CHAT DENGAN BACKGROUND WA */}
       <div 
         className="flex-1 overflow-y-auto p-4 custom-scrollbar relative"
         style={{
@@ -225,43 +223,19 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom }: { currentUser: 
         }}
         onClick={() => { setActiveReactionMsgId(null); setShowEmoji(false); }}
       >
-        
-        {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center z-20">
-                <Loader2 className="animate-spin text-[#00a884]" size={30} />
-            </div>
-        )}
-
-        <div className="relative z-10 flex flex-col gap-3 pb-10">
-          <div className="flex justify-center mb-4 mt-2">
-            <span className="bg-[#182229]/90 backdrop-blur-sm text-gray-400 text-[10px] uppercase tracking-widest px-4 py-1.5 rounded-lg shadow-sm border border-gray-800">
-              Sesi Chat Dimulai ({dayjs(session.started_at).format('DD MMM YYYY')})
-            </span>
-          </div>
-
-          {/* MAPPING DATA DARI SUPABASE */}
+        <div className="relative z-10 flex flex-col gap-3 pb-4">
           {safeMessages.map((msg: any) => {
             const isMyMessage = msg.sender_username === currentUser.username;
             const repliedMsg = msg.reply_to_id ? getReplyMessage(msg.reply_to_id) : null;
             const hasReactions = msg.reactions && Object.keys(msg.reactions).length > 0;
 
             return (
-              <div 
-                key={msg.id} 
-                className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'} relative`}
-              >
+              <div key={msg.id} className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'} relative`}>
+                {/* EMOJI MENU PADA 2X TAP */}
                 {activeReactionMsgId === msg.id && (
                     <div className={`absolute -top-12 ${isMyMessage ? 'right-0' : 'left-0'} bg-[#2a3942] border border-gray-700 rounded-full shadow-2xl flex items-center gap-1.5 px-3 py-1.5 z-50 animate-[scaleIn_0.2s_ease-out]`}>
                         {['❤️', '👍', '😂', '😮', '😢', '🙏'].map(emoji => (
-                            <button 
-                                key={emoji} 
-                                onClick={(e) => { 
-                                    e.stopPropagation(); 
-                                    addReaction && addReaction(msg.id, emoji); 
-                                    setActiveReactionMsgId(null); 
-                                }} 
-                                className="hover:scale-125 transition-transform text-xl cursor-pointer"
-                            >
+                            <button key={emoji} onClick={(e) => { e.stopPropagation(); addReaction && addReaction(msg.id, emoji); setActiveReactionMsgId(null); }} className="hover:scale-125 transition-transform text-xl cursor-pointer">
                                 {emoji}
                             </button>
                         ))}
@@ -270,65 +244,44 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom }: { currentUser: 
 
                 <div 
                     className={`relative max-w-[80%] px-3 pt-2 pb-1.5 rounded-xl shadow-md transition-all ${
-                      isMyMessage 
-                        ? 'bg-[#005c4b] text-[#e9edef] rounded-tr-none' 
-                        : 'bg-[#202c33] text-[#e9edef] rounded-tl-none'
+                      isMyMessage ? 'bg-[#005c4b] text-[#e9edef] rounded-tr-none' : 'bg-[#202c33] text-[#e9edef] rounded-tl-none'
                     }`}
                     onDoubleClick={(e) => { e.stopPropagation(); handleDoubleTap(msg); }}
                     onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(msg); }}
                     onTouchEnd={handleTouchEnd}
                     onContextMenu={(e) => handleContextMenu(e, msg)}
                 >
-                  
                   {repliedMsg && (
                       <div className="replied-message-bubble mb-2 border-l-4 border-l-[#53bdeb] bg-black/20 p-2 rounded flex flex-col">
                           <span className="text-[#53bdeb] font-bold text-xs">{repliedMsg.sender_username === currentUser.username ? 'Anda' : repliedMsg.sender_username}</span>
-                          <span className="text-gray-300 text-xs line-clamp-1">{repliedMsg.message || '📷 Media'}</span>
+                          <span className="text-gray-300 text-xs line-clamp-1">{repliedMsg.message || '📎 Media'}</span>
                       </div>
                   )}
 
                   {msg.media_url && msg.media_type === 'image' && (
-                      <div 
-                          className="mb-2 cursor-pointer rounded-lg overflow-hidden border border-white/10 relative" 
-                          onClick={(e) => { e.stopPropagation(); onImageZoom && onImageZoom(msg.media_url!); }}
-                      >
+                      <div className="mb-2 cursor-pointer rounded-lg overflow-hidden border border-white/10" onClick={(e) => { e.stopPropagation(); onImageZoom && onImageZoom(msg.media_url!); }}>
                           <img src={msg.media_url} alt="Attachment" className="max-w-full h-auto max-h-64 object-cover" />
                       </div>
                   )}
 
-                  {msg.message && (
-                      <p className="text-[14.5px] leading-relaxed pr-10 whitespace-pre-wrap">{msg.message}</p>
-                  )}
+                  {msg.message && <p className="text-[14.5px] leading-relaxed pr-10 whitespace-pre-wrap">{msg.message}</p>}
                   
                   <div className="flex items-center justify-end gap-1 mt-1 -mb-1 float-right clear-both">
-                    <span className="text-[10px] text-white/50">
-                      {dayjs(msg.created_at).format('HH:mm')}
-                    </span>
-                    
-                    {isMyMessage && (
-                      <CheckCheck 
-                        size={15} 
-                        strokeWidth={2.5}
-                        className={`${msg.is_viewed ? 'text-[#53bdeb]' : 'text-white/40'} transition-colors duration-300`} 
-                      />
-                    )}
+                    <span className="text-[10px] text-white/50">{dayjs(msg.created_at).format('HH:mm')}</span>
+                    {isMyMessage && <CheckCheck size={15} strokeWidth={2.5} className={`${msg.is_viewed ? 'text-[#53bdeb]' : 'text-white/40'} transition-colors duration-300`} />}
                   </div>
 
                   {hasReactions && (
                       <div className={`absolute -bottom-3 ${isMyMessage ? 'right-2' : 'left-2'} bg-[#182229] border border-gray-700 rounded-full px-2 py-0.5 flex gap-1 shadow-sm`}>
-                          {Object.entries(msg.reactions).map(([emoji, users]: any) => (
-                              <span key={emoji} className="text-[11px]">{emoji}</span>
-                          ))}
+                          {Object.entries(msg.reactions).map(([emoji]: any) => <span key={emoji} className="text-[11px]">{emoji}</span>)}
                       </div>
                   )}
                 </div>
               </div>
             );
           })}
-          
-          {/* ========================================================= */}
-          {/* GELEMBUNG ANIMASI TYPING (DI BAWAH CHAT TERAKHIR) */}
-          {/* ========================================================= */}
+
+          {/* GELEMBUNG ANIMASI TYPING ALA WHATSAPP */}
           {isCounterpartTyping && (
               <div className="flex justify-start relative mb-2 animate-[fadeIn_0.2s_ease-out]">
                 <div className="relative px-3 py-2 rounded-xl shadow-md bg-[#202c33] text-[#e9edef] rounded-tl-none flex items-center h-[34px] w-[50px] justify-center">
@@ -340,73 +293,44 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom }: { currentUser: 
                 </div>
               </div>
           )}
-
-          {isUploading && (
-              <div className="flex justify-end">
-                  <div className="bg-[#005c4b] text-[#e9edef] px-4 py-2 rounded-lg rounded-tr-none flex items-center gap-2">
-                      <Loader2 size={14} className="animate-spin" />
-                      <span className="text-xs italic">Mengirim...</span>
-                  </div>
-              </div>
-          )}
           
           <div ref={messagesEndRef} />
         </div>
       </div>
 
-      {showEmoji && (
-          <div className="absolute bottom-[70px] left-2 z-50 animate-[fadeIn_0.2s_ease-out]">
-              <EmojiPicker 
-                  theme={Theme.DARK} 
-                  onEmojiClick={(e) => setInputText(prev => prev + e.emoji)} 
-                  lazyLoadEmojis={true}
-              />
-          </div>
-      )}
-
-      {/* INPUT CHAT WRAPPER */}
-      <div className="bg-[#202c33] pb-2 pt-2 px-2 z-20">
-          
+      {/* INPUT BAR */}
+      <div className="bg-[#202c33] pb-4 pt-2 px-2 z-20">
           {replyTo && (
               <div className="reply-preview-box mb-2 mx-2 border-l-[#53bdeb] bg-[#2a3942] rounded-t-xl p-3 flex justify-between items-center relative overflow-hidden">
                   <div className="flex flex-col z-10 w-full pr-6">
                       <span className="text-[#53bdeb] font-bold text-xs">{replyTo.sender_username === currentUser.username ? 'Membalas diri sendiri' : `Membalas ${replyTo.sender_username}`}</span>
-                      <span className="text-gray-300 text-xs line-clamp-1">{replyTo.message || '📷 Media'}</span>
+                      <span className="text-gray-300 text-xs line-clamp-1">{replyTo.message || '📎 Media'}</span>
                   </div>
                   <button type="button" onClick={() => setReplyTo(null)} className="absolute right-3 text-gray-400 hover:text-white z-10"><X size={16}/></button>
               </div>
           )}
 
-          <form onSubmit={handleSendMessage} className={`chat-input-wrapper flex items-center gap-2 bg-transparent border-none ${replyTo ? 'pt-0' : ''}`}>
+          <form onSubmit={handleSendMessage} className={`chat-input-wrapper flex items-center gap-2 bg-transparent border-none`}>
             <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,video/*" />
-            
-            <button type="button" onClick={() => fileInputRef.current?.click()} className="plus-btn-modern shrink-0" disabled={isUploading}>
-              <Plus size={22} />
-            </button>
-
-            <button type="button" onClick={() => setShowEmoji(!showEmoji)} className="text-gray-400 hover:text-white shrink-0 mx-1 transition-colors">
-              <Smile size={24} />
-            </button>
-            
+            <button type="button" onClick={() => fileInputRef.current?.click()} className="plus-btn-modern shrink-0" disabled={isUploading}><Plus size={22} /></button>
+            <button type="button" onClick={() => setShowEmoji(!showEmoji)} className="text-gray-400 hover:text-white shrink-0 mx-1"><Smile size={24} /></button>
             <input 
               type="text" 
               value={inputText}
-              // TRIGGER EVENT NGETIK DISINI
               onChange={handleInputChange}
-              placeholder="Ketik pesan..." 
+              placeholder="Ketik pesan" 
               className="input-message-capsule flex-1 bg-[#2a3942] text-[#e9edef]"
               disabled={isUploading}
             />
-            
-            <button type="submit" className="send-btn-modern shrink-0" disabled={isUploading}>
-              <span className="hidden sm:block">Send</span>
-              <div className="svg-wrapper">
-                <Send size={18} />
-              </div>
-            </button>
+            <button type="submit" className="send-btn-modern shrink-0" disabled={isUploading}><Send size={18} /></button>
           </form>
       </div>
 
+      {showEmoji && (
+          <div className="absolute bottom-[80px] left-2 z-50">
+              <EmojiPicker theme={Theme.DARK} onEmojiClick={(e) => setInputText(prev => prev + e.emoji)} lazyLoadEmojis={true} />
+          </div>
+      )}
     </div>
   );
 };

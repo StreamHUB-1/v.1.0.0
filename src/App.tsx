@@ -394,7 +394,7 @@ export default function App() {
             className="text-center mb-10 z-10"
         >
           <h1 className="text-6xl md:text-8xl font-black text-white mb-2 uppercase tracking-tighter">STREAM<span className="text-primary">HUB</span></h1>
-          <p className="text-gray-500 font-bold uppercase tracking-widest text-sm">Premium Video Directory</p>
+          <p className="text-gray-500 font-bold uppercase tracking-widest text-sm">Premium Video & Chatting ( RPS > CS )</p>
         </motion.div>
         
         {/* Menggunakan Framer Motion */}
@@ -406,16 +406,16 @@ export default function App() {
         >
           {!isRegisterOpen ? (
             <form onSubmit={handleLoginSubmit}>
-              <div className="text-center mb-8"><h3 className="text-2xl font-black text-white uppercase tracking-tighter">Sign In</h3></div>
-              <div className="flex-column mb-4"><label>Username</label><div className="inputForm"><UserIcon size={20} className="text-gray-400" /><input type="text" value={loginForm.username} onChange={e => setLoginForm({...loginForm, username: e.target.value})} placeholder="Username (e.g. contoh123)" className="input" /></div></div>
-              <div className="flex-column mb-4"><label>Password</label><div className="inputForm"><Lock size={20} className="text-gray-400" /><input type="password" value={loginForm.password} onChange={e => setLoginForm({...loginForm, password: e.target.value})} placeholder="Password (e.g. contoh123)" className="input" /></div></div>
+              <div className="text-center mb-8"><h3 className="text-2xl font-black text-white uppercase tracking-tighter">LogIn</h3></div>
+              <div className="flex-column mb-4"><label>Username</label><div className="inputForm"><UserIcon size={20} className="text-gray-400" /><input type="text" value={loginForm.username} onChange={e => setLoginForm({...loginForm, username: e.target.value})} placeholder="ID Login" className="input" /></div></div>
+              <div className="flex-column mb-4"><label>Password</label><div className="inputForm"><Lock size={20} className="text-gray-400" /><input type="password" value={loginForm.password} onChange={e => setLoginForm({...loginForm, password: e.target.value})} placeholder="Password" className="input" /></div></div>
               <div className="flex-row">
                 <div className="flex items-center gap-2"><input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} /><label>Remember me</label></div>
                 <span className="span-link">Forgot password?</span>
               </div>
               <button className="button-submit" disabled={authLoading}>{authLoading ? 'Signing In...' : 'Sign In'}</button>
               <div className="p-footer">Don't have an account? <span className="span-link" onClick={() => setIsRegisterOpen(true)}>Sign Up</span></div>
-              <button type="button" className="guest-btn" onClick={handleGuestLogin}>Continue as Guest (Watch Free)</button>
+              <button type="button" className="guest-btn" onClick={handleGuestLogin}>Masuk Dengan Akun Tamu Gratis</button>
             </form>
           ) : (
             <form onSubmit={async (e) => {
@@ -432,10 +432,10 @@ export default function App() {
                 }
               } catch(e) { console.error(e); } finally { setAuthLoading(false); }
             }}>
-              <div className="text-center mb-8"><h3 className="text-2xl font-black text-white uppercase tracking-tighter">Sign Up</h3></div>
-              <div className="flex-column mb-4"><label>Nickname</label><div className="inputForm"><UserIcon size={20} className="text-gray-400" /><input type="text" value={registerForm.nickname} onChange={e => setRegisterForm({...registerForm, nickname: e.target.value})} placeholder="Display Name" className="input" /></div></div>
-              <div className="flex-column mb-4"><label>Username</label><div className="inputForm"><UserIcon size={20} className="text-gray-400" /><input type="text" value={registerForm.username} onChange={e => setRegisterForm({...registerForm, username: e.target.value})} placeholder="Username (e.g. contoh123)" className="input" /></div></div>
-              <div className="flex-column mb-4"><label>Password</label><div className="inputForm"><Lock size={20} className="text-gray-400" /><input type="password" value={registerForm.password} onChange={e => setRegisterForm({...registerForm, password: e.target.value})} placeholder="Password (e.g. contoh123)" className="input" /></div></div>
+              <div className="text-center mb-8"><h3 className="text-2xl font-black text-white uppercase tracking-tighter">Daftar</h3></div>
+              <div className="flex-column mb-4"><label>Nickname</label><div className="inputForm"><UserIcon size={20} className="text-gray-400" /><input type="text" value={registerForm.nickname} onChange={e => setRegisterForm({...registerForm, nickname: e.target.value})} placeholder="Nama yang digunakan" className="input" /></div></div>
+              <div className="flex-column mb-4"><label>Username</label><div className="inputForm"><UserIcon size={20} className="text-gray-400" /><input type="text" value={registerForm.username} onChange={e => setRegisterForm({...registerForm, username: e.target.value})} placeholder="ID (contoh123)" className="input" /></div></div>
+              <div className="flex-column mb-4"><label>Password</label><div className="inputForm"><Lock size={20} className="text-gray-400" /><input type="password" value={registerForm.password} onChange={e => setRegisterForm({...registerForm, password: e.target.value})} placeholder="Password (contoh123)" className="input" /></div></div>
               <button className="button-submit" disabled={authLoading}>{authLoading ? 'Creating Account...' : 'Sign Up'}</button>
               <div className="p-footer">Already have an account? <span className="span-link" onClick={() => setIsRegisterOpen(false)}>Sign In</span></div>
             </form>

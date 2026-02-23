@@ -17,14 +17,12 @@ export interface ChatMessage {
 }
 
 // ==========================================
-// 1. HOOK UTAMA: ROOM CHAT (DENGAN TYPING & ONLINE STATUS)
+// 1. HOOK UTAMA: ROOM CHAT (SUARA AKTIF DI SINI)
 // ==========================================
 export const useTalentChat = (currentUser: User, activeSessionId: string | null) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-
-  // STATE BARU UNTUK STATUS
   const [isCounterpartTyping, setIsCounterpartTyping] = useState(false);
   const [isCounterpartOnline, setIsCounterpartOnline] = useState(false);
   
@@ -61,10 +59,9 @@ export const useTalentChat = (currentUser: User, activeSessionId: string | null)
     };
     fetchMsgs();
 
-    // SETUP SUPABASE CHANNEL
     const roomChannel = supabase.channel(`chat_${activeSessionId}`, {
         config: {
-            presence: { key: currentUser.username }, // Daftarkan diri sebagai Online
+            presence: { key: currentUser.username },
             broadcast: { self: false }
         }
     });
@@ -72,12 +69,19 @@ export const useTalentChat = (currentUser: User, activeSessionId: string | null)
     channelRef.current = roomChannel;
 
     roomChannel
-      // 1. LISTEN PESAN BARU
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'private_chats', filter: `session_id=eq.${activeSessionId}` }, payload => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_chats', filter: `session_id=eq.${activeSessionId}` }, payload => {
           if (payload.eventType === 'INSERT') {
-              setMessages(prev => [...prev, payload.new as ChatMessage]);
-              if (payload.new.sender_username !== currentUser.username) {
-                  supabase.from('private_chats').update({ is_viewed: true }).eq('id', payload.new.id).then();
+              const newMsg = payload.new as ChatMessage;
+              setMessages(prev => [...prev, newMsg]);
+
+              // --- LOGIKA SUARA: HANYA SAAT DI DALAM ROOM ---
+              if (newMsg.sender_username !== currentUser.username) {
+                  // Putar suara tres.mp3
+                  const audio = new Audio('/sounds/tres.mp3');
+                  audio.play().catch(() => console.log("Autoplay blocked: Butuh interaksi user pertama kali."));
+
+                  // Tandai langsung terbaca karena kita sedang di dalam room
+                  supabase.from('private_chats').update({ is_viewed: true }).eq('id', newMsg.id).then();
               }
           } else if (payload.eventType === 'UPDATE') {
               setMessages(prev => prev.map(msg => msg.id === payload.new.id ? payload.new as ChatMessage : msg));
@@ -85,23 +89,18 @@ export const useTalentChat = (currentUser: User, activeSessionId: string | null)
               setMessages(prev => prev.filter(msg => msg.id !== payload.old.id));
           }
       })
-      // 2. LISTEN ANIMASI MENGETIK
       .on('broadcast', { event: 'typing' }, (payload) => {
           if (payload.payload.username !== currentUser.username) {
               setIsCounterpartTyping(payload.payload.isTyping);
               clearTimeout(typingTimeoutRef.current);
               if (payload.payload.isTyping) {
-                  typingTimeoutRef.current = setTimeout(() => {
-                      setIsCounterpartTyping(false);
-                  }, 3000);
+                  typingTimeoutRef.current = setTimeout(() => setIsCounterpartTyping(false), 3000);
               }
           }
       })
-      // 3. LISTEN STATUS ONLINE/OFFLINE (Sangat Responsif)
       .on('presence', { event: 'sync' }, () => {
           const state = roomChannel.presenceState();
-          const isOtherOnline = Object.keys(state).some(key => key !== currentUser.username);
-          setIsCounterpartOnline(isOtherOnline);
+          setIsCounterpartOnline(Object.keys(state).some(key => key !== currentUser.username));
       })
       .on('presence', { event: 'join' }, ({ key }) => {
           if (key !== currentUser.username) setIsCounterpartOnline(true);
@@ -109,28 +108,18 @@ export const useTalentChat = (currentUser: User, activeSessionId: string | null)
       .on('presence', { event: 'leave' }, ({ key }) => {
           if (key !== currentUser.username) {
               const state = roomChannel.presenceState();
-              const isStillOnline = Object.keys(state).some(k => k !== currentUser.username);
-              setIsCounterpartOnline(isStillOnline);
+              setIsCounterpartOnline(Object.keys(state).some(k => k !== currentUser.username));
           }
       })
       .subscribe(async (status) => {
           if (status === 'SUBSCRIBED') {
-              try {
-                  // Deklarasi masuk room
-                  await roomChannel.track({ 
-                      username: currentUser.username, 
-                      online_at: new Date().toISOString() 
-                  });
-              } catch (e) {
-                  console.error("Gagal tracking status online:", e);
-              }
+              await roomChannel.track({ username: currentUser.username, online_at: new Date().toISOString() });
           }
       });
 
     return () => { supabase.removeChannel(roomChannel); };
   }, [activeSessionId, currentUser.username]);
 
-  // FUNGSI MENGIRIM SINYAL MENGETIK KE LAWAN
   const sendTypingEvent = async (isTyping: boolean) => {
       if (channelRef.current && activeSessionId) {
           await channelRef.current.send({
@@ -170,9 +159,7 @@ export const useTalentChat = (currentUser: User, activeSessionId: string | null)
               reply_to_id: replyToId
           }]);
           
-          // Matikan indikator ngetik setelah pesan terkirim
           sendTypingEvent(false);
-          
       } catch (e) {
           console.error("Gagal kirim pesan:", e);
       } finally {
@@ -208,12 +195,11 @@ export const useTalentChat = (currentUser: User, activeSessionId: string | null)
       catch (error) { console.error("Gagal update reaction", error); }
   };
 
-  // Jangan lupa export fungsi dan state barunya!
   return { messages, isLoading, isUploading, sendMessage, markAsViewed, addReaction, isCounterpartTyping, isCounterpartOnline, sendTypingEvent };
 };
 
 // =========================================================================
-// 2. HOOK SIDEBAR: DAFTAR PESAN MASUK (SAMA SEPERTI SEBELUMNYA)
+// 2. HOOK SIDEBAR: NOTIFIKASI VISUAL & GETAR (DI LUAR ROOM)
 // =========================================================================
 export const useSidebarData = (currentUser: User, rawSessions: any[], activeSessionId: string | null) => {
     const [enrichedSessions, setEnrichedSessions] = useState<any[]>([]);
@@ -244,7 +230,7 @@ export const useSidebarData = (currentUser: User, rawSessions: any[], activeSess
 
                 let lastText = 'Sesi chat aktif';
                 if (lastMsg) {
-                    lastText = lastMsg.message ? lastMsg.message : (lastMsg.media_type ? `📎 [Media ${lastMsg.media_type}]` : 'Sesi chat aktif');
+                    lastText = lastMsg.message ? lastMsg.message : (lastMsg.media_type ? `📎 Media` : 'Sesi chat aktif');
                 }
 
                 return {
@@ -262,49 +248,46 @@ export const useSidebarData = (currentUser: User, rawSessions: any[], activeSess
         fetchSidebarStats();
 
         const sub = supabase.channel('sidebar_global')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'private_chats' }, payload => {
-                 if (payload.eventType === 'INSERT') {
-                     const newMsg = payload.new as ChatMessage;
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_chats' }, payload => {
+                 const newMsg = payload.new as ChatMessage;
+                 
+                 setEnrichedSessions(prev => {
+                     let updated = [...prev];
+                     const idx = updated.findIndex(s => s.session_id === newMsg.session_id);
                      
-                     setEnrichedSessions(prev => {
-                         let updated = [...prev];
-                         const idx = updated.findIndex(s => s.session_id === newMsg.session_id);
-                         
-                         if (idx !== -1) {
-                             const s = {...updated[idx]};
-                             s.last_message_time = new Date(newMsg.created_at).getTime();
-                             s.last_message_text = newMsg.message || `📎 [Media]`;
+                     if (idx !== -1) {
+                         const s = {...updated[idx]};
+                         s.last_message_time = new Date(newMsg.created_at).getTime();
+                         s.last_message_text = newMsg.message || `📎 Media`;
 
-                             if (newMsg.sender_username !== currentUser.username) {
-                                 if (activeSessionRef.current !== newMsg.session_id) {
-                                     s.unread_count = (s.unread_count || 0) + 1;
-                                     
-                                     if ((window as any).Swal) {
-                                         (window as any).Swal.fire({
-                                             toast: true,
-                                             position: 'top',
-                                             icon: 'success',
-                                             iconColor: '#00a884',
-                                             title: `Pesan baru dari ${s.counterpart_name}`,
-                                             text: s.last_message_text.length > 30 ? s.last_message_text.substring(0, 30) + '...' : s.last_message_text,
-                                             showConfirmButton: false,
-                                             timer: 4000,
-                                             background: '#202c33',
-                                             color: '#e9edef',
-                                             customClass: { popup: 'border border-[#222d34] rounded-[20px] shadow-2xl mt-4' }
-                                         });
-                                     }
-                                     if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+                         if (newMsg.sender_username !== currentUser.username) {
+                             if (activeSessionRef.current !== newMsg.session_id) {
+                                 // JIKA DI LUAR ROOM: GETAR & SWAL SAJA (TANPA SUARA)
+                                 if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+                                 
+                                 if ((window as any).Swal) {
+                                     (window as any).Swal.fire({
+                                         toast: true,
+                                         position: 'top',
+                                         icon: 'success',
+                                         iconColor: '#00a884',
+                                         title: `Pesan baru dari ${s.counterpart_name}`,
+                                         text: s.last_message_text.length > 30 ? s.last_message_text.substring(0, 30) + '...' : s.last_message_text,
+                                         showConfirmButton: false,
+                                         timer: 4000,
+                                         background: '#202c33',
+                                         color: '#e9edef',
+                                         customClass: { popup: 'border border-[#222d34] rounded-[20px] shadow-2xl mt-4' }
+                                     });
                                  }
+                                 s.unread_count = (s.unread_count || 0) + 1;
                              }
-                             updated[idx] = s;
-                             updated.sort((a, b) => b.last_message_time - a.last_message_time);
                          }
-                         return updated;
-                     });
-                 } else if (payload.eventType === 'UPDATE') {
-                     fetchSidebarStats();
-                 }
+                         updated[idx] = s;
+                         updated.sort((a, b) => b.last_message_time - a.last_message_time);
+                     }
+                     return updated;
+                 });
             }).subscribe();
 
         return () => { supabase.removeChannel(sub); };

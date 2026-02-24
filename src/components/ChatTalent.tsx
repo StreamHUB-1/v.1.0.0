@@ -54,7 +54,6 @@ export const ChatTalent: React.FC<ChatTalentProps> = ({ currentUser, onBack, onI
           </button>
           <h2 className="text-[#e9edef] font-bold text-lg">Pesan Masuk</h2>
           
-          {/* TOMBOL PENCARIAN & MENU DI SIDEBAR (SUDAH AKTIF) */}
           <div className="ml-auto flex gap-4 text-gray-400">
              <Search 
                 size={20} 
@@ -127,14 +126,27 @@ export const ChatTalent: React.FC<ChatTalentProps> = ({ currentUser, onBack, onI
     );
   }
 
-  return <ChatRoom currentUser={currentUser} session={activeSession} onBack={() => setActiveSession(null)} onImageZoom={onImageZoom} />;
+  // PASSING PROP onSessionEnded KE DALAM ROOM
+  return (
+    <ChatRoom 
+      currentUser={currentUser} 
+      session={activeSession} 
+      onBack={() => setActiveSession(null)} 
+      onImageZoom={onImageZoom}
+      onSessionEnded={(sessionId) => {
+          // Hapus sesi dari state secara instan (hilang dari UI user & talent)
+          setRawSessions(prev => prev.filter(s => s.session_id !== sessionId));
+          setActiveSession(null);
+      }}
+    />
+  );
 };
 
 
 // ==========================================
 // 2. KOMPONEN RUANG CHAT (ROOM)
 // ==========================================
-const ChatRoom = ({ currentUser, session, onBack, onImageZoom }: { currentUser: User, session: any, onBack: () => void, onImageZoom?: (url: string) => void }) => {
+const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }: { currentUser: User, session: any, onBack: () => void, onImageZoom?: (url: string) => void, onSessionEnded: (id: string) => void }) => {
   
   const { messages, isLoading, isUploading, sendMessage, addReaction, isCounterpartTyping, isCounterpartOnline, sendTypingEvent } = useTalentChat(currentUser, session.session_id);
   const safeMessages = Array.isArray(messages) ? messages : [];
@@ -148,7 +160,6 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom }: { currentUser: 
   const fileInputRef = useRef<HTMLInputElement>(null);
   let pressTimer: NodeJS.Timeout;
 
-  // FIX SCROLL: Menggunakan timeout agar stabil di Web Browser & PWA
   useEffect(() => {
     const handleScroll = () => {
       if (messagesEndRef.current) {
@@ -205,12 +216,14 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom }: { currentUser: 
 
   const getReplyMessage = (replyId: number) => safeMessages.find((m: any) => m.id === replyId);
 
-  // FUNGSI UNTUK MENGAKHIRI CHAT (TOMBOL TITIK TIGA DI ROOM)
+  // =========================================================
+  // LOGIKA AKHIRI CHAT (TERHUBUNG KE BACKEND APPS SCRIPT)
+  // =========================================================
   const handleEndChat = () => {
       if ((window as any).Swal) {
           (window as any).Swal.fire({
               title: 'Akhiri Sesi Chat?',
-              text: "Sesi ini akan ditutup dan kamu akan kembali ke daftar pesan.",
+              text: "Sesi ini akan ditutup dan dipindahkan ke Riwayat Admin.",
               icon: 'warning',
               showCancelButton: true,
               confirmButtonColor: '#00a884',
@@ -219,19 +232,50 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom }: { currentUser: 
               cancelButtonText: 'Batal',
               background: '#202c33',
               color: '#e9edef'
-          }).then((result: any) => {
+          }).then(async (result: any) => {
               if (result.isConfirmed) {
-                  // Munculkan notifikasi sukses
-                  (window as any).Swal.fire({
-                      title: 'Sesi Diakhiri',
-                      icon: 'success',
-                      showConfirmButton: false,
-                      timer: 1500,
-                      background: '#202c33',
-                      color: '#e9edef'
-                  });
-                  // Keluar dari room
-                  onBack(); 
+                  try {
+                      // 1. Tampilkan loading
+                      (window as any).Swal.fire({
+                          title: 'Menutup sesi...',
+                          allowOutsideClick: false,
+                          background: '#202c33',
+                          color: '#e9edef',
+                          didOpen: () => {
+                              (window as any).Swal.showLoading();
+                          }
+                      });
+
+                      // 2. Hubungi Backend (Google Apps Script) untuk mengubah status jadi Ended
+                      const res = await api.endChat(session.session_id);
+
+                      if (res.status === 'success') {
+                          // 3. Notifikasi Sukses
+                          (window as any).Swal.fire({
+                              title: 'Sesi Diakhiri',
+                              text: 'Berhasil dipindahkan ke kontrol Admin.',
+                              icon: 'success',
+                              showConfirmButton: false,
+                              timer: 1500,
+                              background: '#202c33',
+                              color: '#e9edef'
+                          });
+                          
+                          // 4. Hapus dari UI layar User & Talent secara instan
+                          onSessionEnded(session.session_id);
+                      } else {
+                          throw new Error('Gagal dari server');
+                      }
+                  } catch (error) {
+                      console.error("Gagal end chat:", error);
+                      (window as any).Swal.fire({
+                          title: 'Gagal',
+                          text: 'Gagal mengakhiri sesi, coba lagi.',
+                          icon: 'error',
+                          background: '#202c33',
+                          color: '#e9edef'
+                      });
+                  }
               }
           });
       }

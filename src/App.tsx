@@ -94,7 +94,7 @@ export default function App() {
     setIsLoadingData(true);
     try {
       const vidData = await api.getVideos();
-      setVideos(Array.isArray(vidData) ? vidData.map((item:any) => ({ id: item.id || item.judul || item.Judul || Math.random(), title: item.judul || item.Judul || 'Untitled', description: item.description || item.Description || '', thumbnailUrl: item.foto || item.Foto || '', videoUrl: item.link || item.Link || '', duration: item.duration || item.Duration || 'HD', views: Number(item.views || item.Views || 0), uploadDate: new Date().toISOString(), category: item.genre || item.Genre || 'Uncategorized', uploader: item.uploader || 'Admin' })) : []);
+      setVideos(Array.isArray(vidData) ? vidData.map((item:any) => ({ id: item.id || item.judul || item.Judul || Math.random(), title: item.judul || item.Judul || 'Untitled', description: item.description || item.Description || '', thumbnailUrl: item.foto || item.Foto || '', videoUrl: item.link || item.Link || '', duration: item.duration || item.Duration || 'HD', views: Number(item.views || item.Views || 0), uploadDate: item.uploadDate || item.UploadDate || new Date().toISOString().toISOString(), category: item.genre || item.Genre || 'Uncategorized', uploader: item.uploader || 'Admin' })) : []);
       
       const catData = await api.getCategories();
       if (Array.isArray(catData)) setCategories(['All', ...catData.map((item:any) => item.name || item.Name)]);

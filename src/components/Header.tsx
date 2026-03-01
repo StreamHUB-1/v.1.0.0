@@ -1,5 +1,4 @@
 import React, { useState, useRef } from 'react';
-// Import 'Play' sudah dihapus dari sini agar rapi
 import { Menu, User as UserIcon, X, Settings, LogOut, ShoppingCart, LayoutGrid, Home, Ticket, Coins, Infinity, Pencil, Save, Radio, Headphones, MessageCircle, Camera } from 'lucide-react';
 import { ViewState, User } from '../types';
 import '../styles/Animations.css';
@@ -100,7 +99,9 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate, onLogou
   };
 
   const renderTokenDisplay = () => {
-      const tokenVal = user.role === 'admin' ? 'UNLIMITED' : user.tokens;
+      // Admin dan Developer punya display Unlimited Token
+      const isAdminOrDev = user.role === 'admin' || user.role === 'developer';
+      const tokenVal = isAdminOrDev ? 'UNLIMITED' : user.tokens;
       const isUnlimited = (typeof tokenVal === 'string' && tokenVal.toLowerCase().includes('unlimited')) || (typeof tokenVal === 'number' && tokenVal > 900000);
       const formattedToken = isUnlimited ? 'UNLIMITED' : formatNumber(tokenVal);
 
@@ -123,9 +124,7 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate, onLogou
     <>
       <header className="sticky top-0 z-50 bg-black/90 backdrop-blur-md border-b border-gray-800 h-20 flex items-center justify-between px-3 md:px-12 w-full max-w-[100vw] overflow-hidden">
         
-        {/* LOGO AREA - Ikon Play telah dihapus */}
         <div className="flex items-center w-[140px] sm:w-[180px] shrink-0">
-          
           <div className="ai-logo-wrapper cursor-pointer" onClick={() => onNavigate('home')}>
              <div className="light-1"></div>
              <div className="light-2"></div>
@@ -152,7 +151,8 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate, onLogou
               </div>
           )}
 
-          {user.role === 'admin' && (
+          {/* DITAMBAHKAN AKSES DEVELOPER UNTUK TOMBOL ADMIN */}
+          {(user.role === 'admin' || user.role === 'developer') && (
             <button onClick={() => onNavigate('admin')} className={`transition-all hover:text-primary p-1 ${currentView === 'admin' ? 'text-primary' : 'text-gray-500'}`}>
                 <Settings className="w-5 h-5 md:w-6 md:h-6" />
             </button>

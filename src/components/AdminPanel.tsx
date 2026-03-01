@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Trash2, Edit2, Save, X, Image as ImageIcon, Search, Loader2, Type, Clock, AlignLeft, Tag, Video as VideoIcon, ChevronDown, CheckSquare, Square, Lock, Coins, Ticket, User, Shield, ShoppingBag, DollarSign, CreditCard, LayoutGrid, CheckCircle, ChevronLeft, Flame, EyeOff, Wallet, UploadCloud } from 'lucide-react';
 import { Video, StoreOptions } from '../types';
 import { api } from '../services/api';
-// IMPORT SUPABASE UNTUK HAK AKSES DEWA ADMIN
 import { supabase } from '../services/supabase';
 import { SearchInput } from './SearchInput';
 
@@ -18,7 +17,21 @@ interface UserManagementData { username: string; nickname: string; type: string;
 const showPopup = (title: string, text: string, icon: 'success' | 'error' | 'warning') => { (window as any).Swal.fire({ title, text, icon, background: '#1a1a1a', color: '#fff', confirmButtonColor: '#e50914', timer: icon === 'success' ? 2000 : undefined, showConfirmButton: icon !== 'success' }); };
 const formatPrice = (price: string | number) => { return new Intl.NumberFormat('id-ID').format(Number(price) || 0); };
 
-// API KEY DOODSTREAM
+// HELPER: MENGHAPUS FORMAT 1899 DARI GOOGLE SHEETS
+const fixGoogleSheetsDate = (dur: string | number) => {
+    if (!dur) return "00:00";
+    const str = String(dur);
+    if (str.includes('T') && str.includes('Z')) {
+        const match = str.match(/T(\d{2}:\d{2}:\d{2})/);
+        if (match) {
+            let time = match[1];
+            if (time.startsWith('00:')) time = time.substring(3);
+            return time;
+        }
+    }
+    return str.replace(/\u200B/g, ''); // Hapus spasi tak kasat mata
+};
+
 const DOOD_API_KEY = '557667ehqkgznsj6giueg5';
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categories, setCategories, refreshData, storeTypes, storeTokens, storeOptions }) => {
@@ -109,16 +122,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
     } catch (e: any) { showPopup('Error', e.message || 'Error occurred.', 'error'); } finally { setIsSubmitting(false); }
   };
 
-  // =======================================================
-  // FUNGSI INTI PROSES UPLOAD DOODSTREAM (ANTI CORS & FALLBACK)
-  // =======================================================
   const processDoodUpload = async (file: File) => {
       if (!file) return;
       setIsSubmitting(true);
       
       (window as any).Swal.fire({
           title: 'Mengupload ke DoodStream...',
-          text: 'Meminta akses server (Matikan Shield Brave jika nyangkut)...',
+          text: 'Meminta akses server...',
           allowOutsideClick: false,
           background: '#1a1a1a',
           color: '#fff',
@@ -126,44 +136,34 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
       });
 
       try {
-          // 1. Minta Izin Server DoodStream (Coba direct dulu, kalau gagal pakai proxy raw)
           let serverUrl = '';
           try {
               const res = await fetch(`https://doodapi.co/api/upload/server?key=${DOOD_API_KEY}`);
               const data = await res.json();
               if (data.status === 200) serverUrl = data.result;
           } catch (e) {
-              // Jika CORS kena blokir, gunakan Raw Proxy
               const proxyRes = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(`https://doodapi.co/api/upload/server?key=${DOOD_API_KEY}`)}`);
               const proxyData = await proxyRes.json();
               if (proxyData.status === 200) serverUrl = proxyData.result;
           }
 
-          if (!serverUrl) throw new Error("Gagal mendapat server DoodStream. Pastikan API Key valid.");
+          if (!serverUrl) throw new Error("Gagal mendapat server DoodStream.");
 
-          // Update teks loading
-          (window as any).Swal.update({ text: 'Mengirim file video... (Jangan tutup halaman ini)' });
+          (window as any).Swal.update({ text: 'Mengirim file video...' });
 
-          // 2. Upload File MP4 ke CDN DoodStream
           const formDataUpload = new FormData();
           formDataUpload.append('api_key', DOOD_API_KEY);
           formDataUpload.append('file', file);
 
           const uploadLink = `${serverUrl}?${DOOD_API_KEY}`;
-
-          const uploadRes = await fetch(uploadLink, { 
-              method: 'POST', 
-              body: formDataUpload 
-          });
+          const uploadRes = await fetch(uploadLink, { method: 'POST', body: formDataUpload });
           
-          if (!uploadRes.ok) throw new Error("Gagal mengirim file ke server DoodStream.");
-          
+          if (!uploadRes.ok) throw new Error("Gagal mengirim file.");
           const uploadData = await uploadRes.json();
 
           if (uploadData.status === 200 && uploadData.result && uploadData.result.length > 0) {
               const result = uploadData.result[0];
               
-              // 3. Konversi Durasi
               let formattedDuration = '00:00';
               if (result.length && !isNaN(result.length)) {
                   const totalSeconds = parseInt(result.length);
@@ -172,7 +172,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                   formattedDuration = `${mins}:${secs.toString().padStart(2, '0')}`;
               }
 
-              // 4. Auto-Fill Form Admin (Dengan Fallback Placeholder jika thumbnail telat di-generate)
               setFormData(prev => ({
                   ...prev,
                   title: prev.title || result.title || file.name.split('.')[0],
@@ -183,24 +182,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
               
               (window as any).Swal.fire({
                   title: 'Auto-Sync Berhasil!',
-                  text: 'Judul, Link, Thumbnail & Durasi telah diisi otomatis!',
+                  text: 'Data telah diisi otomatis!',
                   icon: 'success',
                   background: '#1a1a1a',
                   color: '#fff',
                   timer: 2500
               });
           } else {
-              throw new Error("Respon tidak valid dari sisi DoodStream");
+              throw new Error("Respon tidak valid.");
           }
       } catch (err: any) {
-          console.error("Error Upload Dood:", err);
-          (window as any).Swal.fire({
-              title: 'Upload Gagal',
-              text: err.message || 'Koneksi terputus. Matikan AdBlock/Shield browser kamu.',
-              icon: 'error',
-              background: '#1a1a1a',
-              color: '#fff'
-          });
+          (window as any).Swal.fire({ title: 'Upload Gagal', text: err.message, icon: 'error', background: '#1a1a1a', color: '#fff' });
       } finally {
           setIsSubmitting(false);
           if (videoInputRef.current) videoInputRef.current.value = '';
@@ -212,36 +204,35 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
       if (file) processDoodUpload(file);
   };
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      setIsDragging(false);
-  };
-
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => { e.preventDefault(); setIsDragging(true); };
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => { e.preventDefault(); setIsDragging(false); };
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
       setIsDragging(false);
       const file = e.dataTransfer.files?.[0];
-      if (file && file.type.startsWith('video/')) {
-          processDoodUpload(file);
-      } else if (file) {
-          showPopup('Format Salah', 'Silakan upload file video (MP4, M4V, dll).', 'error');
-      }
+      if (file && file.type.startsWith('video/')) processDoodUpload(file);
+      else if (file) showPopup('Format Salah', 'Silakan upload file video (MP4).', 'error');
   };
 
+  // LOGIKA SAVE DAN EDIT YANG SUDAH DIPERKUAT
   const handleSaveVideo = async () => {
     if (!formData.title || !formData.videoUrl) return showPopup('Missing Info', "Title and Video Link are required!", 'warning');
     setIsSubmitting(true);
     const finalGenre = formData.genre || 'Uncategorized';
     
-    // Pastikan old_judul dikirim dengan benar saat edit
-    const payload = editingOldTitle 
-        ? { action: 'editVideo', old_judul: editingOldTitle.trim(), judul: formData.title.trim(), link: formData.videoUrl, genre: finalGenre, foto: formData.thumbnailUrl, description: formData.description, duration: formData.duration } 
-        : { action: 'addVideo', judul: formData.title.trim(), link: formData.videoUrl, genre: finalGenre, foto: formData.thumbnailUrl, description: formData.description, duration: formData.duration };
+    // Trik Spasi Tak Kasat Mata agar Google Sheets membaca Durasi sebagai Teks murni!
+    const finalDuration = formData.duration.trim() + '\u200B'; 
+
+    const payload = {
+        action: editingOldTitle ? 'editVideo' : 'addVideo',
+        old_judul: editingOldTitle ? editingOldTitle.trim() : undefined,
+        judul: formData.title.trim(),
+        link: formData.videoUrl,
+        genre: finalGenre,
+        foto: formData.thumbnailUrl,
+        description: formData.description,
+        duration: finalDuration
+    };
     
     try {
       const res = await api.saveVideo(payload);
@@ -250,15 +241,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
           setFormData({title:'', description:'', thumbnailUrl:'', videoUrl:'', duration:'', genre: ''}); 
           setEditingOldTitle(null); 
           setIsGenreDropdownOpen(false); 
-          showPopup('Berhasil!', `Video telah disave.`, 'success'); 
+          showPopup('Berhasil!', `Data tersimpan.`, 'success'); 
       } else {
-          showPopup('Gagal', res.message || 'Gagal menyimpan ke database.', 'error');
+          showPopup('Gagal', res.message || 'Gagal menyimpan.', 'error');
       }
-    } catch (e: any) { showPopup('Error', e.message || 'Network error.', 'error'); } finally { setIsSubmitting(false); }
+    } catch (e: any) { showPopup('Error', e.message, 'error'); } finally { setIsSubmitting(false); }
   };
 
   const handleDeleteVideo = async (judul: string) => {
-      (window as any).Swal.fire({ title: 'Delete Video?', text: `Delete "${judul}"?`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#e50914', cancelButtonColor: '#333', confirmButtonText: 'Yes, delete it!', background: '#1a1a1a', color: '#fff' }).then(async (result: any) => {
+      (window as any).Swal.fire({ title: 'Delete Video?', text: `Delete "${judul}"?`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#e50914', cancelButtonColor: '#333', confirmButtonText: 'Yes', background: '#1a1a1a', color: '#fff' }).then(async (result: any) => {
           if (result.isConfirmed) {
               setIsSubmitting(true);
               try {
@@ -269,28 +260,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
       });
   }
 
-  // =======================================================
-  // FUNGSI EDIT VIDEO & FIX FORMAT TANGGAL GOOGLE SHEETS
-  // =======================================================
+  // SAAT KLIK EDIT, BERSIHKAN FORMAT 1899 SECARA OTOMATIS
   const handleEditVideoClick = (v: Video) => {
-      let cleanDuration = v.duration;
-      // Memperbaiki bug Google Sheets dimana durasi 23:56 dibaca jadi 1899-12-30T00:23:56.000Z
-      if (typeof cleanDuration === 'string' && cleanDuration.includes('1899-12-30')) {
-          const match = cleanDuration.match(/T(\d{2}:\d{2}:\d{2})/);
-          if (match) {
-              cleanDuration = match[1];
-              // Hapus 00: di depan jika durasi kurang dari 1 jam
-              if (cleanDuration.startsWith('00:')) cleanDuration = cleanDuration.substring(3);
-          }
-      }
-
       setEditingOldTitle(v.title); 
       setFormData({ 
           title: v.title, 
           description: v.description, 
           thumbnailUrl: v.thumbnailUrl, 
           videoUrl: v.videoUrl, 
-          duration: cleanDuration, 
+          duration: fixGoogleSheetsDate(v.duration), 
           genre: v.category 
       }); 
       setIsGenreDropdownOpen(false); 
@@ -404,9 +382,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
       }).then(async (res: any) => {
           if(res.isConfirmed) {
               setIsSubmitting(true);
-              
               const { data: sessionMessages } = await supabase.from('private_chats').select('media_url').eq('session_id', sessionId).not('media_url', 'is', null);
-
               if (sessionMessages && sessionMessages.length > 0) {
                   const filesToDelete = sessionMessages.map(msg => {
                       const parts = msg.media_url.split('/');
@@ -416,7 +392,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                       await supabase.storage.from('chat_media').remove(filesToDelete);
                   }
               }
-
               await supabase.from('private_chats').delete().eq('session_id', sessionId);
               await api.deleteSession(sessionId);
 
@@ -453,7 +428,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
               </h3>
               <div className="space-y-4">
                  
-                 {/* KOTAK DRAG & DROP DOODSTREAM */}
                  <div 
                      className={`p-6 border-2 border-dashed rounded-xl text-center cursor-pointer transition-all ${isDragging ? 'border-[#00a884] bg-[#00a884]/10' : 'border-gray-800 hover:border-gray-600 bg-black'}`}
                      onDragOver={handleDragOver}
@@ -539,14 +513,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
             <div className="flex justify-between items-center mb-6"><h3 className="text-sm font-black uppercase tracking-widest text-gray-500">Video Library</h3></div>
             <div className="mb-6"><SearchInput value={librarySearch} onChange={e => setLibrarySearch(e.target.value)} placeholder="Search videos..." onFilterClick={() => {}} /></div>
             <div className="space-y-3 overflow-y-auto custom-scrollbar flex-1 pr-2">
-                {/* LOGIKA SORTING TERBARU DI ATAS MENGGUNAKAN .reverse() */}
                 {[...videos].reverse().filter(v => (v.title || '').toLowerCase().includes(librarySearch.toLowerCase())).map(v => (
                     <div key={v.id} className="flex items-center gap-4 p-4 bg-black border border-gray-800 rounded-2xl group hover:border-gray-700 transition-colors">
                         <div className="w-24 h-16 shrink-0 rounded-lg overflow-hidden bg-gray-900"><img src={v.thumbnailUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform" /></div>
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
                                 {v.category.split(',').map((tag, tIdx) => (<span key={tIdx} className="bg-gray-800 text-gray-400 text-[9px] font-black px-1.5 py-0.5 rounded uppercase">{tag.trim()}</span>))}
-                                <span className="text-gray-600 text-[10px] font-bold ml-auto">{v.duration}</span>
+                                {/* DURASI DIBERSIHKAN DISINI SEBELUM DITAMPILKAN */}
+                                <span className="text-gray-600 text-[10px] font-bold ml-auto">{fixGoogleSheetsDate(v.duration)}</span>
                             </div>
                             <h4 className="font-bold text-sm text-white truncate mb-1">{v.title}</h4>
                             <p className="text-gray-500 text-[10px] line-clamp-1">{v.description}</p>

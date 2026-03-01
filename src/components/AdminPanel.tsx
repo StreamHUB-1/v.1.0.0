@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Trash2, Edit2, Save, X, Image as ImageIcon, Search, Loader2, Type, Clock, AlignLeft, Tag, Video as VideoIcon, ChevronDown, CheckSquare, Square, Lock, Coins, Ticket, User, Shield, ShoppingBag, DollarSign, CreditCard, LayoutGrid, CheckCircle, ChevronLeft, Flame, EyeOff, Wallet, UploadCloud } from 'lucide-react';
 import { Video, StoreOptions } from '../types';
 import { api } from '../services/api';
+// IMPORT SUPABASE UNTUK HAK AKSES DEWA ADMIN
 import { supabase } from '../services/supabase';
 import { SearchInput } from './SearchInput';
 
@@ -23,10 +24,9 @@ const DOOD_API_KEY = '557667ehqkgznsj6giueg5';
 export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categories, setCategories, refreshData, storeTypes, storeTokens, storeOptions }) => {
   const [activeTab, setActiveTab] = useState('videos');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isDragging, setIsDragging] = useState(false); // STATE BARU UNTUK DRAG & DROP
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null); 
+  const videoInputRef = useRef<HTMLInputElement>(null); // REF BARU UNTUK UPLOAD DOODSTREAM
 
   const [formData, setFormData] = useState({ title: '', description: '', thumbnailUrl: '', videoUrl: '', duration: '', genre: '' });
   const [editingOldTitle, setEditingOldTitle] = useState<string | null>(null);
@@ -48,12 +48,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
   const [genreInput, setGenreInput] = useState('');
   const [editingGenreName, setEditingGenreName] = useState<string | null>(null);
 
+  // TAB TALENT & HISTORY
   const [talentApps, setTalentApps] = useState<any[]>([]);
   const [activeTalents, setActiveTalents] = useState<any[]>([]);
   const [endedSessions, setEndedSessions] = useState<any[]>([]);
   const [adminBalance, setAdminBalance] = useState<number>(0);
   const [subTabTalent, setSubTabTalent] = useState<'apps' | 'active' | 'history' | 'balance'>('apps');
   
+  // STATE KHUSUS CHAT VIEWER ADMIN
   const [selectedHistorySession, setSelectedHistorySession] = useState<any | null>(null);
   const [historyMessages, setHistoryMessages] = useState<any[]>([]);
 
@@ -87,6 +89,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
       if (activeTab === 'talents') fetchTalentsData();
   }, [activeTab]);
 
+  // LOAD PESAN SAAT ADMIN KLIK SALAH SATU RIWAYAT
   useEffect(() => {
       if(selectedHistorySession) {
           supabase.from('private_chats').select('*').eq('session_id', selectedHistorySession.session_id).order('created_at', {ascending: true})
@@ -109,10 +112,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
   };
 
   // =======================================================
-  // FUNGSI INTI PROSES UPLOAD DOODSTREAM
+  // FUNGSI AUTO-UPLOAD & SYNC DOODSTREAM (BARU)
   // =======================================================
-  const processDoodUpload = async (file: File) => {
+  const handleDoodUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
       if (!file) return;
+
       setIsSubmitting(true);
       (window as any).Swal.fire({
           title: 'Mengupload ke DoodStream...',
@@ -124,10 +129,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
       });
 
       try {
+          // 1. Minta Izin Server DoodStream
           const serverRes = await fetch(`https://doodapi.co/api/upload/server?key=${DOOD_API_KEY}`);
           const serverData = await serverRes.json();
           if (serverData.status !== 200 || !serverData.result) throw new Error("Gagal mendapat server DoodStream");
 
+          // 2. Upload File MP4
           const formDataUpload = new FormData();
           formDataUpload.append('api_key', DOOD_API_KEY);
           formDataUpload.append('file', file);
@@ -138,6 +145,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
           if (uploadData.status === 200 && uploadData.result && uploadData.result.length > 0) {
               const result = uploadData.result[0];
               
+              // 3. Konversi Durasi (dari detik menjadi MM:SS)
               let formattedDuration = '00:00';
               if (result.length && !isNaN(result.length)) {
                   const totalSeconds = parseInt(result.length);
@@ -146,6 +154,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                   formattedDuration = `${mins}:${secs.toString().padStart(2, '0')}`;
               }
 
+              // 4. Auto-Fill Form Admin
               setFormData(prev => ({
                   ...prev,
                   title: prev.title || result.title || file.name.split('.')[0],
@@ -177,34 +186,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
       } finally {
           setIsSubmitting(false);
           if (videoInputRef.current) videoInputRef.current.value = '';
-      }
-  };
-
-  // HANDLER DARI TOMBOL KLIK
-  const handleDoodUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) processDoodUpload(file);
-  };
-
-  // HANDLER DRAG & DROP
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      setIsDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      setIsDragging(false);
-      const file = e.dataTransfer.files?.[0];
-      if (file && file.type.startsWith('video/')) {
-          processDoodUpload(file);
-      } else if (file) {
-          showPopup('Format Salah', 'Silakan upload file video (MP4, M4V, dll).', 'error');
       }
   };
 
@@ -312,6 +293,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
       });
   };
 
+  // =======================================================
+  // FUNGSI SUPER ADMIN: KONFIRMASI GAJI
+  // =======================================================
   const handleConfirmSalary = async (sessionId: string) => {
       (window as any).Swal.fire({
           title: 'Konfirmasi Gaji?',
@@ -324,7 +308,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                   const result = await api.confirmSalary(sessionId);
                   if(result.status === 'success') {
                       showPopup('Berhasil', result.message, 'success');
-                      fetchTalentsData(); 
+                      fetchTalentsData(); // Refresh history and admin balance
                       setSelectedHistorySession(null); 
                   } else {
                       showPopup('Gagal', result.message, 'error');
@@ -334,6 +318,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
       });
   }
 
+  // =======================================================
+  // FUNGSI SUPER ADMIN: BURN ON CHAT (HAPUS PERMANEN)
+  // =======================================================
   const handleBurnChat = async (sessionId: string) => {
       (window as any).Swal.fire({
           title: 'BURN ON CHAT?', 
@@ -344,8 +331,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
           if(res.isConfirmed) {
               setIsSubmitting(true);
               
+              // 1. CARI SEMUA MEDIA DI SESI INI
               const { data: sessionMessages } = await supabase.from('private_chats').select('media_url').eq('session_id', sessionId).not('media_url', 'is', null);
 
+              // 2. HAPUS FILE FISIK DARI SUPABASE STORAGE
               if (sessionMessages && sessionMessages.length > 0) {
                   const filesToDelete = sessionMessages.map(msg => {
                       const parts = msg.media_url.split('/');
@@ -356,7 +345,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                   }
               }
 
+              // 3. HAPUS RIWAYAT TEKS/CHAT DARI DATABASE SUPABASE
               await supabase.from('private_chats').delete().eq('session_id', sessionId);
+
+              // 4. HAPUS PERMANEN DARI GOOGLE SHEETS
               await api.deleteSession(sessionId);
 
               setSelectedHistorySession(null);
@@ -391,28 +383,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                   {editingOldTitle ? 'Edit Content' : 'Add Content'}
               </h3>
               <div className="space-y-4">
-                 
-                 {/* KOTAK DRAG & DROP DOODSTREAM */}
-                 <div 
-                     className={`p-6 border-2 border-dashed rounded-xl text-center cursor-pointer transition-all ${isDragging ? 'border-[#00a884] bg-[#00a884]/10' : 'border-gray-800 hover:border-gray-600 bg-black'}`}
-                     onDragOver={handleDragOver}
-                     onDragLeave={handleDragLeave}
-                     onDrop={handleDrop}
-                     onClick={() => videoInputRef.current?.click()}
-                 >
-                     <input type="file" ref={videoInputRef} className="hidden" accept="video/mp4,video/x-m4v,video/*" onChange={handleDoodUpload} />
-                     <UploadCloud size={32} className={`mx-auto mb-2 ${isDragging ? 'text-[#00a884]' : 'text-gray-600'}`} />
-                     <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">
-                         {isDragging ? 'Lepaskan Video Di Sini' : 'Drag & Drop Video ke sini'}
-                     </p>
-                     <p className="text-[9px] text-gray-600 mt-1 uppercase">Atau Klik Untuk Memilih File</p>
-                 </div>
-
                  <div className="relative">
                      <Type className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
                      <input type="text" placeholder="Video Title" className="w-full bg-black border border-gray-800 rounded-xl pl-12 pr-4 py-3 text-sm outline-none focus:border-primary text-white" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
                  </div>
-                 
                  <div className="relative">
                      <Tag className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
                      <div onClick={() => setIsGenreDropdownOpen(!isGenreDropdownOpen)} className="w-full bg-black border border-gray-800 rounded-xl pl-12 pr-4 py-3 text-sm cursor-pointer flex items-center justify-between text-white hover:border-primary transition-colors">
@@ -437,21 +411,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                      )}
                  </div>
                  
+                 {/* FITUR AUTO UPLOAD DOODSTREAM DITAMBAHKAN DISINI */}
                  <div className="relative">
                      <VideoIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
-                     <input type="text" placeholder="Video / Embed Link" className="w-full bg-black border border-gray-800 rounded-xl pl-12 pr-4 py-3 text-sm outline-none focus:border-primary text-white" value={formData.videoUrl} onChange={e => setFormData({...formData, videoUrl: e.target.value})} />
+                     <input type="text" placeholder="Video / Embed Link" className="w-full bg-black border border-gray-800 rounded-xl pl-12 pr-28 py-3 text-sm outline-none focus:border-primary text-white" value={formData.videoUrl} onChange={e => setFormData({...formData, videoUrl: e.target.value})} />
+                     
+                     <button type="button" onClick={() => videoInputRef.current?.click()} className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#00a884] hover:bg-[#008f6f] text-[9px] font-black uppercase px-3 py-1.5 rounded-lg transition-colors text-white flex items-center gap-1">
+                         <UploadCloud size={12}/> Auto
+                     </button>
+                     <input type="file" ref={videoInputRef} className="hidden" accept="video/mp4,video/x-m4v,video/*" onChange={handleDoodUpload} />
                  </div>
 
                  <div className="relative">
                      <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
                      <input type="text" placeholder="Duration (e.g. 12:05)" className="w-full bg-black border border-gray-800 rounded-xl pl-12 pr-4 py-3 text-sm outline-none focus:border-primary text-white" value={formData.duration} onChange={e => setFormData({...formData, duration: e.target.value})} />
                  </div>
-                 
                  <div className="relative">
                      <AlignLeft className="absolute left-4 top-4 text-gray-500" size={16} />
                      <textarea placeholder="Description" rows={3} className="w-full bg-black border border-gray-800 rounded-xl pl-12 pr-4 py-3 text-sm outline-none focus:border-primary text-white resize-none" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
                  </div>
-                 
                  <div className="p-4 border-2 border-dashed border-gray-800 rounded-xl text-center cursor-pointer hover:border-gray-600 transition-colors" onClick={() => fileInputRef.current?.click()}>
                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={e => {
                         const file = e.target.files?.[0];
@@ -463,7 +441,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                         <div className="flex flex-col items-center gap-2 py-4"><ImageIcon className="text-gray-600" size={24} /><div className="text-gray-500 font-bold text-[10px] uppercase">Upload Thumbnail</div></div>
                     )}
                  </div>
-                 
                  <div className="flex gap-2">
                     {editingOldTitle && <button onClick={() => { setEditingOldTitle(null); setFormData({title:'', description:'', thumbnailUrl:'', videoUrl:'', duration:'', genre: ''}); setIsGenreDropdownOpen(false); }} className="flex-1 bg-gray-800 hover:bg-gray-700 py-4 rounded-xl font-black uppercase text-xs tracking-widest transition-colors">Cancel</button>}
                     <button onClick={handleSaveVideo} className="flex-1 bg-primary hover:bg-red-700 py-4 rounded-xl font-black uppercase text-xs tracking-widest transition-colors flex items-center justify-center gap-2" disabled={isSubmitting}>
@@ -782,7 +759,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                   </div>
               </div>
           ) : (
-              // TABEL DATA (PENDING / ACTIVE / HISTORY)
+              // TABEL DATA (PENDING / ACTIVE / HISTORY) (Jangan render table jika di tab balance)
               subTabTalent !== 'balance' && (
               <table className="w-full text-left">
                 <thead>

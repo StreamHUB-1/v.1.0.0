@@ -99,7 +99,6 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate, onLogou
   };
 
   const renderTokenDisplay = () => {
-      // Admin dan Developer punya display Unlimited Token
       const isAdminOrDev = user.role === 'admin' || user.role === 'developer';
       const tokenVal = isAdminOrDev ? 'UNLIMITED' : user.tokens;
       const isUnlimited = (typeof tokenVal === 'string' && tokenVal.toLowerCase().includes('unlimited')) || (typeof tokenVal === 'number' && tokenVal > 900000);
@@ -151,7 +150,7 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate, onLogou
               </div>
           )}
 
-          {/* DITAMBAHKAN AKSES DEVELOPER UNTUK TOMBOL ADMIN */}
+          {/* DITAMBAHKAN AKSES DEVELOPER UNTUK TOMBOL ADMIN (TAMPIL DI DESKTOP & MOBILE ATAS) */}
           {(user.role === 'admin' || user.role === 'developer') && (
             <button onClick={() => onNavigate('admin')} className={`transition-all hover:text-primary p-1 ${currentView === 'admin' ? 'text-primary' : 'text-gray-500'}`}>
                 <Settings className="w-5 h-5 md:w-6 md:h-6" />
@@ -220,6 +219,14 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate, onLogou
                                   </div>
                               </div>
                               <button className="submit-btn" data-text="Store" onClick={() => { onNavigate('store'); setIsProfileOpen(false); }}><span className="btn-text">Store</span></button>
+                              
+                              {/* TAMBAHAN UNTUK HP: TOMBOL ADMIN DI DALAM PROFIL */}
+                              {(user.role === 'admin' || user.role === 'developer') && (
+                                  <button className="submit-btn !border-primary !text-primary hover:!bg-primary hover:!text-white mt-2" data-text="Admin Panel" onClick={() => { onNavigate('admin'); setIsProfileOpen(false); }}>
+                                      <span className="btn-text">Admin Panel</span>
+                                  </button>
+                              )}
+
                               <button className="submit-btn logout-btn" data-text="LogOut" onClick={() => { onLogout(); setIsProfileOpen(false); }}><span className="btn-text">LogOut</span></button>
                           </>
                       )}
@@ -238,6 +245,13 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate, onLogou
             <div className={`child child-3 ${currentView === 'store' ? 'active' : ''}`} onClick={() => onNavigate('store')}><button className="button btn-3"><ShoppingCart size={22} strokeWidth={2.5} /></button></div>
             <div className="child child-4" onClick={() => handleComingSoon('LIVE')}><button className="button btn-4"><Radio size={22} strokeWidth={2.5} /></button></div>
             <div className="child child-5" onClick={() => onChatClick('Admin Support')}><button className="button btn-5"><Headphones size={22} strokeWidth={2.5} /></button></div>
+            
+            {/* TAMBAHAN UNTUK HP: TOMBOL KE-6 (KHUSUS ADMIN/DEV) */}
+            {(user.role === 'admin' || user.role === 'developer') && (
+                <div className={`child child-6 ${currentView === 'admin' ? 'active' : ''}`} onClick={() => onNavigate('admin')}>
+                    <button className="button btn-6"><Settings size={22} strokeWidth={2.5} /></button>
+                </div>
+            )}
          </div>
       </div>
     </>

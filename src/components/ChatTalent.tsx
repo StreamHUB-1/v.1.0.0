@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, CheckCheck, Send, MoreVertical, Search, Loader2, MessageCircle, Plus, Smile, X, Mic, Trash2, Square } from 'lucide-react';
+import { ArrowLeft, CheckCheck, Send, MoreVertical, Search, Loader2, MessageCircle, Plus, Smile, X, Mic, Trash2 } from 'lucide-react';
 import EmojiPicker, { Theme } from 'emoji-picker-react';
 import { User } from '../types';
 import dayjs from 'dayjs';
@@ -126,7 +126,6 @@ export const ChatTalent: React.FC<ChatTalentProps> = ({ currentUser, onBack, onI
     );
   }
 
-  // PASSING PROP onSessionEnded KE DALAM ROOM
   return (
     <ChatRoom 
       currentUser={currentUser} 
@@ -134,7 +133,6 @@ export const ChatTalent: React.FC<ChatTalentProps> = ({ currentUser, onBack, onI
       onBack={() => setActiveSession(null)} 
       onImageZoom={onImageZoom}
       onSessionEnded={(sessionId) => {
-          // Hapus sesi dari state secara instan (hilang dari UI user & talent)
           setRawSessions(prev => prev.filter(s => s.session_id !== sessionId));
           setActiveSession(null);
       }}
@@ -156,17 +154,20 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
   const [replyTo, setReplyTo] = useState<any | null>(null);
   const [activeReactionMsgId, setActiveReactionMsgId] = useState<number | null>(null);
   
-  // STATE UNTUK VOICE NOTE
+  // STATE UNTUK VOICE NOTE YANG SUDAH DIPERBAIKI
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<BlobPart[]>([]);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // SATPAM ANTI-BOCOR: Memastikan rekaman yang dibatalkan tidak dikirim
+  const isCancelledRef = useRef(false); 
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   let pressTimer: NodeJS.Timeout;
 
+  // SCROLL OTOMATIS KE BAWAH
   useEffect(() => {
     const handleScroll = () => {
       if (messagesEndRef.current) {
@@ -181,12 +182,17 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
     return () => clearTimeout(timer);
   }, [safeMessages.length, isCounterpartTyping]);
 
-  // MEMBERSIHKAN TIMER JIKA KOMPONEN DI-UNMOUNT
+  // FIX BUG 1: TIMER BERJALAN DENGAN BENAR (BEBAS STUCK 0:00)
   useEffect(() => {
-      return () => {
-          if (timerRef.current) clearInterval(timerRef.current);
-          if (mediaRecorderRef.current && isRecording) mediaRecorderRef.current.stop();
-      };
+      let interval: NodeJS.Timeout;
+      if (isRecording) {
+          interval = setInterval(() => {
+              setRecordingTime(prev => prev + 1);
+          }, 1000);
+      } else {
+          setRecordingTime(0); // Reset timer pas berhenti rekaman
+      }
+      return () => clearInterval(interval);
   }, [isRecording]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -212,38 +218,45 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
   };
 
   // =========================================================
-  // LOGIKA VOICE NOTE (REKAM DAN KIRIM)
+  // LOGIKA VOICE NOTE (ANTI BOCOR & REALTIME FIX)
   // =========================================================
   const startRecording = async () => {
       try {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
           const mediaRecorder = new MediaRecorder(stream);
+          
           mediaRecorderRef.current = mediaRecorder;
           audioChunksRef.current = [];
+          isCancelledRef.current = false; // Reset satpam ke status aman
 
           mediaRecorder.ondataavailable = (event) => {
               if (event.data.size > 0) audioChunksRef.current.push(event.data);
           };
 
-          mediaRecorder.onstop = () => {
-              if (audioChunksRef.current.length > 0) {
-                  const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-                  // Bungkus jadi File agar bisa diproses oleh fungsi sendMessage bawaan
-                  const audioFile = new File([audioBlob], `VN_${Date.now()}.webm`, { type: 'audio/webm' });
-                  sendMessage('', audioFile, false, replyTo?.id);
+          mediaRecorder.onstop = async () => {
+              stream.getTracks().forEach(track => track.stop()); // Matikan icon mic di browser
+              
+              // FIX BUG 2: Kalo dibatalkan (Cancel), langsung stop dan JANGAN upload!
+              if (isCancelledRef.current) {
+                  return;
               }
-              // Matikan indikator mic di tab browser
-              stream.getTracks().forEach(track => track.stop());
-              setReplyTo(null);
+
+              if (audioChunksRef.current.length > 0) {
+                  // FIX BUG 3: Format disesuaikan agar Realtime jalan di iPhone/Android
+                  const mimeType = mediaRecorder.mimeType || 'audio/webm';
+                  const extension = mimeType.includes('mp4') ? 'm4a' : 'webm';
+                  
+                  const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+                  const audioFile = new File([audioBlob], `VN_${Date.now()}.${extension}`, { type: mimeType });
+                  
+                  // Menggunakan await agar state realtime Supabase menangkap sinyal dengan sempurna
+                  await sendMessage('', audioFile, false, replyTo?.id);
+                  setReplyTo(null);
+              }
           };
 
           mediaRecorder.start();
           setIsRecording(true);
-          setRecordingTime(0);
-          
-          timerRef.current = setInterval(() => {
-              setRecordingTime((prev) => prev + 1);
-          }, 1000);
 
       } catch (err) {
           console.error("Mic access denied or error:", err);
@@ -259,20 +272,19 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
   };
 
   const stopAndSendRecording = () => {
+      isCancelledRef.current = false; // Pastikan statusnya AMAN (Bukan Batal)
       if (mediaRecorderRef.current && isRecording) {
           mediaRecorderRef.current.stop();
-          setIsRecording(false);
-          if (timerRef.current) clearInterval(timerRef.current);
       }
+      setIsRecording(false);
   };
 
   const cancelRecording = () => {
+      isCancelledRef.current = true; // AKTIFKAN SATPAM! Jangan biarkan file dikirim!
       if (mediaRecorderRef.current && isRecording) {
-          audioChunksRef.current = []; // Kosongkan chunk agar onstop tidak mengirim file
           mediaRecorderRef.current.stop();
-          setIsRecording(false);
-          if (timerRef.current) clearInterval(timerRef.current);
       }
+      setIsRecording(false);
   };
 
   const formatRecordingTime = (seconds: number) => {
@@ -303,9 +315,6 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
 
   const getReplyMessage = (replyId: number) => safeMessages.find((m: any) => m.id === replyId);
 
-  // =========================================================
-  // LOGIKA AKHIRI CHAT (TERHUBUNG KE BACKEND APPS SCRIPT)
-  // =========================================================
   const handleEndChat = () => {
       if ((window as any).Swal) {
           (window as any).Swal.fire({
@@ -322,7 +331,6 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
           }).then(async (result: any) => {
               if (result.isConfirmed) {
                   try {
-                      // 1. Tampilkan loading
                       (window as any).Swal.fire({
                           title: 'Menutup sesi...',
                           allowOutsideClick: false,
@@ -333,11 +341,9 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
                           }
                       });
 
-                      // 2. Hubungi Backend (Google Apps Script) untuk mengubah status jadi Ended
                       const res = await api.endChat(session.session_id);
 
                       if (res.status === 'success') {
-                          // 3. Notifikasi Sukses
                           (window as any).Swal.fire({
                               title: 'Sesi Diakhiri',
                               text: 'Berhasil dipindahkan ke kontrol Admin.',
@@ -347,8 +353,6 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
                               background: '#202c33',
                               color: '#e9edef'
                           });
-                          
-                          // 4. Hapus dari UI layar User & Talent secara instan
                           onSessionEnded(session.session_id);
                       } else {
                           throw new Error('Gagal dari server');
@@ -395,7 +399,6 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
             </div>
           </div>
         </div>
-        {/* TOMBOL TITIK TIGA DI ROOM CHAT */}
         <button onClick={handleEndChat} className="text-gray-400 hover:text-white transition-colors">
           <MoreVertical size={20} />
         </button>
@@ -419,11 +422,11 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
             const repliedMsg = msg.reply_to_id ? getReplyMessage(msg.reply_to_id) : null;
             const hasReactions = msg.reactions && Object.keys(msg.reactions).length > 0;
             
-            // CEK TIPE MEDIA (Audio vs Image/Video)
-            const isAudio = msg.media_type === 'audio' || (msg.media_url && msg.media_url.includes('.webm'));
+            // CEK TIPE MEDIA AUDIO (Deteksi Realtime MimeType)
+            const isAudio = msg.media_type === 'audio' || (msg.media_url && (msg.media_url.includes('.webm') || msg.media_url.includes('.m4a') || msg.media_url.includes('.mp3')));
 
             return (
-              <div key={msg.id} className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'} relative`}>
+              <div key={msg.id || msg.created_at} className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'} relative`}>
                 {/* EMOJI MENU PADA 2X TAP */}
                 {activeReactionMsgId === msg.id && (
                     <div className={`absolute -top-12 ${isMyMessage ? 'right-0' : 'left-0'} bg-[#2a3942] border border-gray-700 rounded-full shadow-2xl flex items-center gap-1.5 px-3 py-1.5 z-50 animate-[scaleIn_0.2s_ease-out]`}>
@@ -447,7 +450,7 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
                   {repliedMsg && (
                       <div className="replied-message-bubble mb-2 border-l-4 border-l-[#53bdeb] bg-black/20 p-2 rounded flex flex-col">
                           <span className="text-[#53bdeb] font-bold text-xs">{repliedMsg.sender_username === currentUser.username ? 'Anda' : repliedMsg.sender_username}</span>
-                          <span className="text-gray-300 text-xs line-clamp-1">{repliedMsg.message || (repliedMsg.media_type === 'audio' ? '🎙️ Voice Note' : '📎 Media')}</span>
+                          <span className="text-gray-300 text-xs line-clamp-1">{repliedMsg.message || (repliedMsg.media_type === 'audio' ? '🎙️ Pesan Suara' : '📎 Media')}</span>
                       </div>
                   )}
 
@@ -461,7 +464,7 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
                   {/* RENDER MEDIA AUDIO (VOICE NOTE) */}
                   {msg.media_url && isAudio && (
                       <div className="mb-1 mt-1">
-                          <audio controls src={msg.media_url} className="max-w-full h-10 rounded" />
+                          <audio controls src={msg.media_url} className="max-w-full h-10 rounded outline-none" />
                       </div>
                   )}
 
@@ -482,7 +485,6 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
             );
           })}
 
-          {/* GELEMBUNG ANIMASI TYPING ALA WHATSAPP */}
           {isCounterpartTyping && (
               <div className="flex justify-start relative mb-2 animate-[fadeIn_0.2s_ease-out]">
                 <div className="relative px-3 py-2 rounded-xl shadow-md bg-[#202c33] text-[#e9edef] rounded-tl-none flex items-center h-[34px] w-[50px] justify-center">
@@ -505,7 +507,7 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
               <div className="reply-preview-box mb-2 mx-2 border-l-[#53bdeb] bg-[#2a3942] rounded-t-xl p-3 flex justify-between items-center relative overflow-hidden">
                   <div className="flex flex-col z-10 w-full pr-6">
                       <span className="text-[#53bdeb] font-bold text-xs">{replyTo.sender_username === currentUser.username ? 'Membalas diri sendiri' : `Membalas ${replyTo.sender_username}`}</span>
-                      <span className="text-gray-300 text-xs line-clamp-1">{replyTo.message || (replyTo.media_type === 'audio' ? '🎙️ Voice Note' : '📎 Media')}</span>
+                      <span className="text-gray-300 text-xs line-clamp-1">{replyTo.message || (replyTo.media_type === 'audio' ? '🎙️ Pesan Suara' : '📎 Media')}</span>
                   </div>
                   <button type="button" onClick={() => setReplyTo(null)} className="absolute right-3 text-gray-400 hover:text-white z-10"><X size={16}/></button>
               </div>
@@ -519,10 +521,10 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
                       <span className="text-white font-mono">{formatRecordingTime(recordingTime)}</span>
                   </div>
                   <div className="flex items-center gap-4">
-                      <button type="button" onClick={cancelRecording} className="text-red-400 hover:text-red-500 transition-colors">
+                      <button type="button" onClick={cancelRecording} className="text-red-400 hover:text-red-500 transition-colors" title="Batal Rekam">
                           <Trash2 size={20} />
                       </button>
-                      <button type="button" onClick={stopAndSendRecording} className="w-10 h-10 bg-[#00a884] rounded-full flex items-center justify-center text-white hover:bg-[#008f6f] transition-colors shadow-lg">
+                      <button type="button" onClick={stopAndSendRecording} className="w-10 h-10 bg-[#00a884] rounded-full flex items-center justify-center text-white hover:bg-[#008f6f] transition-colors shadow-lg" title="Kirim Voice Note">
                           <Send size={18} className="ml-1" />
                       </button>
                   </div>

@@ -110,7 +110,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
   };
 
   // =======================================================
-  // FUNGSI INTI PROSES UPLOAD DOODSTREAM (UPDATED WITH CORS PROXY)
+  // FUNGSI INTI PROSES UPLOAD DOODSTREAM (ANTI CORS & FALLBACK)
   // =======================================================
   const processDoodUpload = async (file: File) => {
       if (!file) return;
@@ -118,7 +118,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
       
       (window as any).Swal.fire({
           title: 'Mengupload ke DoodStream...',
-          text: 'Tahap 1: Meminta akses server...',
+          text: 'Meminta akses server (Matikan Shield Brave jika nyangkut)...',
           allowOutsideClick: false,
           background: '#1a1a1a',
           color: '#fff',
@@ -126,28 +126,30 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
       });
 
       try {
-          // 1. Minta Izin Server DoodStream (MENGGUNAKAN CORS PROXY UNTUK BYPASS BLOKIR)
-          const doodApiUrl = `https://doodapi.co/api/upload/server?key=${DOOD_API_KEY}`;
-          const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(doodApiUrl)}`;
-          
-          const serverRes = await fetch(proxyUrl);
-          const proxyData = await serverRes.json();
-          const serverData = JSON.parse(proxyData.contents); // Decode hasil proxy
-
-          if (serverData.status !== 200 || !serverData.result) {
-              throw new Error("Gagal mendapat server DoodStream. Coba lagi.");
+          // 1. Minta Izin Server DoodStream (Coba direct dulu, kalau gagal pakai proxy raw)
+          let serverUrl = '';
+          try {
+              const res = await fetch(`https://doodapi.co/api/upload/server?key=${DOOD_API_KEY}`);
+              const data = await res.json();
+              if (data.status === 200) serverUrl = data.result;
+          } catch (e) {
+              // Jika CORS kena blokir, gunakan Raw Proxy
+              const proxyRes = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(`https://doodapi.co/api/upload/server?key=${DOOD_API_KEY}`)}`);
+              const proxyData = await proxyRes.json();
+              if (proxyData.status === 200) serverUrl = proxyData.result;
           }
 
+          if (!serverUrl) throw new Error("Gagal mendapat server DoodStream. Pastikan API Key valid.");
+
           // Update teks loading
-          (window as any).Swal.update({ text: 'Tahap 2: Mengirim file video...' });
+          (window as any).Swal.update({ text: 'Mengirim file video... (Jangan tutup halaman ini)' });
 
           // 2. Upload File MP4 ke CDN DoodStream
           const formDataUpload = new FormData();
           formDataUpload.append('api_key', DOOD_API_KEY);
           formDataUpload.append('file', file);
 
-          // PENTING: Doodstream meminta API_KEY diselipkan juga di URL akhir saat upload file
-          const uploadLink = `${serverData.result}?${DOOD_API_KEY}`;
+          const uploadLink = `${serverUrl}?${DOOD_API_KEY}`;
 
           const uploadRes = await fetch(uploadLink, { 
               method: 'POST', 
@@ -161,7 +163,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
           if (uploadData.status === 200 && uploadData.result && uploadData.result.length > 0) {
               const result = uploadData.result[0];
               
-              // 3. Konversi Durasi (dari detik menjadi MM:SS)
+              // 3. Konversi Durasi
               let formattedDuration = '00:00';
               if (result.length && !isNaN(result.length)) {
                   const totalSeconds = parseInt(result.length);
@@ -170,18 +172,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                   formattedDuration = `${mins}:${secs.toString().padStart(2, '0')}`;
               }
 
-              // 4. Auto-Fill Form Admin
+              // 4. Auto-Fill Form Admin (Dengan Fallback Placeholder jika thumbnail telat di-generate)
               setFormData(prev => ({
                   ...prev,
                   title: prev.title || result.title || file.name.split('.')[0],
                   videoUrl: result.protected_embed || '',
-                  thumbnailUrl: result.single_img || prev.thumbnailUrl,
+                  thumbnailUrl: result.single_img || result.splash_img || prev.thumbnailUrl || 'https://via.placeholder.com/400x225/1a1a1a/e50914.png?text=Thumbnail+Proses',
                   duration: formattedDuration
               }));
               
               (window as any).Swal.fire({
                   title: 'Auto-Sync Berhasil!',
-                  text: 'Video terupload. Judul, Link, Thumbnail & Durasi telah diisi otomatis!',
+                  text: 'Judul, Link, Thumbnail & Durasi telah diisi otomatis!',
                   icon: 'success',
                   background: '#1a1a1a',
                   color: '#fff',
@@ -194,7 +196,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
           console.error("Error Upload Dood:", err);
           (window as any).Swal.fire({
               title: 'Upload Gagal',
-              text: err.message || 'Koneksi terputus. Pastikan mematikan AdBlock/Shield browser kamu.',
+              text: err.message || 'Koneksi terputus. Matikan AdBlock/Shield browser kamu.',
               icon: 'error',
               background: '#1a1a1a',
               color: '#fff'
@@ -235,12 +237,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
     if (!formData.title || !formData.videoUrl) return showPopup('Missing Info', "Title and Video Link are required!", 'warning');
     setIsSubmitting(true);
     const finalGenre = formData.genre || 'Uncategorized';
-    const payload = editingOldTitle ? { action: 'editVideo', old_judul: editingOldTitle, judul: formData.title, link: formData.videoUrl, genre: finalGenre, foto: formData.thumbnailUrl, description: formData.description, duration: formData.duration } : { action: 'addVideo', judul: formData.title, link: formData.videoUrl, genre: finalGenre, foto: formData.thumbnailUrl, description: formData.description, duration: formData.duration };
+    
+    // Pastikan old_judul dikirim dengan benar saat edit
+    const payload = editingOldTitle 
+        ? { action: 'editVideo', old_judul: editingOldTitle.trim(), judul: formData.title.trim(), link: formData.videoUrl, genre: finalGenre, foto: formData.thumbnailUrl, description: formData.description, duration: formData.duration } 
+        : { action: 'addVideo', judul: formData.title.trim(), link: formData.videoUrl, genre: finalGenre, foto: formData.thumbnailUrl, description: formData.description, duration: formData.duration };
+    
     try {
       const res = await api.saveVideo(payload);
-      if (res.status === 'success') { await refreshData(); setFormData({title:'', description:'', thumbnailUrl:'', videoUrl:'', duration:'', genre: ''}); setEditingOldTitle(null); setIsGenreDropdownOpen(false); showPopup('Published!', `Video saved.`, 'success'); } 
-      else showPopup('Failed', res.message || 'Failed.', 'error');
-    } catch (e: any) { showPopup('Error', e.message || 'Error.', 'error'); } finally { setIsSubmitting(false); }
+      if (res.status === 'success') { 
+          await refreshData(); 
+          setFormData({title:'', description:'', thumbnailUrl:'', videoUrl:'', duration:'', genre: ''}); 
+          setEditingOldTitle(null); 
+          setIsGenreDropdownOpen(false); 
+          showPopup('Berhasil!', `Video telah disave.`, 'success'); 
+      } else {
+          showPopup('Gagal', res.message || 'Gagal menyimpan ke database.', 'error');
+      }
+    } catch (e: any) { showPopup('Error', e.message || 'Network error.', 'error'); } finally { setIsSubmitting(false); }
   };
 
   const handleDeleteVideo = async (judul: string) => {
@@ -255,8 +269,32 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
       });
   }
 
+  // =======================================================
+  // FUNGSI EDIT VIDEO & FIX FORMAT TANGGAL GOOGLE SHEETS
+  // =======================================================
   const handleEditVideoClick = (v: Video) => {
-      setEditingOldTitle(v.title); setFormData({ title: v.title, description: v.description, thumbnailUrl: v.thumbnailUrl, videoUrl: v.videoUrl, duration: v.duration, genre: v.category }); setIsGenreDropdownOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' });
+      let cleanDuration = v.duration;
+      // Memperbaiki bug Google Sheets dimana durasi 23:56 dibaca jadi 1899-12-30T00:23:56.000Z
+      if (typeof cleanDuration === 'string' && cleanDuration.includes('1899-12-30')) {
+          const match = cleanDuration.match(/T(\d{2}:\d{2}:\d{2})/);
+          if (match) {
+              cleanDuration = match[1];
+              // Hapus 00: di depan jika durasi kurang dari 1 jam
+              if (cleanDuration.startsWith('00:')) cleanDuration = cleanDuration.substring(3);
+          }
+      }
+
+      setEditingOldTitle(v.title); 
+      setFormData({ 
+          title: v.title, 
+          description: v.description, 
+          thumbnailUrl: v.thumbnailUrl, 
+          videoUrl: v.videoUrl, 
+          duration: cleanDuration, 
+          genre: v.category 
+      }); 
+      setIsGenreDropdownOpen(false); 
+      window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const toggleGenre = (cat: string) => {
@@ -366,7 +404,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
       }).then(async (res: any) => {
           if(res.isConfirmed) {
               setIsSubmitting(true);
+              
               const { data: sessionMessages } = await supabase.from('private_chats').select('media_url').eq('session_id', sessionId).not('media_url', 'is', null);
+
               if (sessionMessages && sessionMessages.length > 0) {
                   const filesToDelete = sessionMessages.map(msg => {
                       const parts = msg.media_url.split('/');
@@ -376,6 +416,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                       await supabase.storage.from('chat_media').remove(filesToDelete);
                   }
               }
+
               await supabase.from('private_chats').delete().eq('session_id', sessionId);
               await api.deleteSession(sessionId);
 
@@ -498,7 +539,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
             <div className="flex justify-between items-center mb-6"><h3 className="text-sm font-black uppercase tracking-widest text-gray-500">Video Library</h3></div>
             <div className="mb-6"><SearchInput value={librarySearch} onChange={e => setLibrarySearch(e.target.value)} placeholder="Search videos..." onFilterClick={() => {}} /></div>
             <div className="space-y-3 overflow-y-auto custom-scrollbar flex-1 pr-2">
-                {videos.filter(v => (v.title || '').toLowerCase().includes(librarySearch.toLowerCase())).map(v => (
+                {/* LOGIKA SORTING TERBARU DI ATAS MENGGUNAKAN .reverse() */}
+                {[...videos].reverse().filter(v => (v.title || '').toLowerCase().includes(librarySearch.toLowerCase())).map(v => (
                     <div key={v.id} className="flex items-center gap-4 p-4 bg-black border border-gray-800 rounded-2xl group hover:border-gray-700 transition-colors">
                         <div className="w-24 h-16 shrink-0 rounded-lg overflow-hidden bg-gray-900"><img src={v.thumbnailUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform" /></div>
                         <div className="flex-1 min-w-0">
@@ -802,7 +844,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                   </div>
               </div>
           ) : (
-              // TABEL DATA (PENDING / ACTIVE / HISTORY)
+              // TABEL DATA (PENDING / ACTIVE / HISTORY) (Jangan render table jika di tab balance)
               subTabTalent !== 'balance' && (
               <table className="w-full text-left">
                 <thead>

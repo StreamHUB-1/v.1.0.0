@@ -113,6 +113,7 @@ export default function App() {
             
             let mappedRole = profileData.data.type || 'Free';
             if (String(mappedRole).toLowerCase().includes('admin')) mappedRole = 'admin';
+            if (String(mappedRole).toLowerCase().includes('developer')) mappedRole = 'developer';
             
             let finalAvatarUrl = profileData.data.foto_profil;
             try {
@@ -174,7 +175,8 @@ export default function App() {
       if (data.status === 'success') {
         let mappedRole = data.data.type || 'Free';
         if (String(mappedRole).toLowerCase().includes('admin')) mappedRole = 'admin';
-        
+        if (String(mappedRole).toLowerCase().includes('developer')) mappedRole = 'developer';
+          
         const user: User = { 
             username: loginForm.username, 
             role: mappedRole, 
@@ -951,8 +953,14 @@ export default function App() {
              </div>
         )}
 
-        {currentView === 'admin' && currentUser.role === 'admin' && (
-            <AdminPanel videos={videos} setVideos={setVideos} categories={categories} setCategories={setCategories} refreshData={fetchData} storeTypes={storeTypes} storeTokens={storeTokens} storeOptions={storeOptions} />
+        {currentView === 'admin' && (currentUser.role === 'admin' || currentUser.role === 'developer') && (
+            <AdminPanel 
+                videos={videos} setVideos={setVideos} categories={categories} 
+                setCategories={setCategories} refreshData={fetchData} 
+                storeTypes={storeTypes} storeTokens={storeTokens} 
+                storeOptions={storeOptions} 
+                currentUserRole={currentUser.role} // <-- Props Baru!
+            />
         )}
       </main>
 

@@ -16,6 +16,28 @@ export interface ChatMessage {
   reactions?: Record<string, string[]> | null;
 }
 
+// HELPER: Mengambil pengaturan notifikasi dari Local Storage
+const getChatSettings = () => {
+    try {
+        const saved = localStorage.getItem('streamhub_chat_settings');
+        if (saved) return JSON.parse(saved);
+    } catch(e) {}
+    
+    // Default fallback jika belum ada setting
+    return {
+        notifSpanduk: true,
+        lencanaTaskbar: true,
+        notifPesan: true,
+        pratinjau: true,
+        notifReaksi: true,
+        reaksiStatus: true,
+        suaraMasuk: true,
+        suaraKeluar: false,
+        volume: 50,
+        notifVolume: 100
+    };
+};
+
 // ==========================================
 // 1. HOOK UTAMA: ROOM CHAT
 // ==========================================
@@ -75,9 +97,15 @@ export const useTalentChat = (currentUser: User, activeSessionId: string | null)
               setMessages(prev => [...prev, newMsg]);
 
               if (newMsg.sender_username !== currentUser.username) {
-                  // Bunyi saat sedang di dalam room
-                  const audio = new Audio('/sounds/tres.mp3');
-                  audio.play().catch(() => {});
+                  const settings = getChatSettings();
+                  
+                  // CEK PENGATURAN SUARA SAAT DI DALAM ROOM
+                  if (settings.suaraMasuk !== false) {
+                      const notifVol = (settings.notifVolume ?? 100) / 100;
+                      const audio = new Audio('/sounds/tres.mp3');
+                      audio.volume = notifVol; // Terapkan volume khusus notifikasi
+                      audio.play().catch(() => {});
+                  }
                   
                   supabase.from('private_chats').update({ is_viewed: true }).eq('id', newMsg.id).then();
               }
@@ -133,7 +161,7 @@ export const useTalentChat = (currentUser: User, activeSessionId: string | null)
               if (!error && data) {
                   const { data: publicUrlData } = supabase.storage.from('chat_media').getPublicUrl(fileName);
                   mediaUrl = publicUrlData.publicUrl;
-                  mediaType = file.type.startsWith('video/') ? 'video' : 'image';
+                  mediaType = file.type.startsWith('video/') ? 'video' : file.type.startsWith('audio/') ? 'audio' : 'image';
               }
           }
 
@@ -149,6 +177,16 @@ export const useTalentChat = (currentUser: User, activeSessionId: string | null)
           }]);
           
           sendTypingEvent(false);
+          
+          // CEK PENGATURAN SUARA KELUAR 
+          const settings = getChatSettings();
+          if (settings.suaraKeluar === true) {
+              const notifVol = (settings.notifVolume ?? 100) / 100;
+              const audio = new Audio('/sounds/tres.mp3'); // Kalau ada suara send.mp3, bisa diganti ke sini
+              audio.volume = notifVol;
+              audio.play().catch(() => {});
+          }
+
       } catch (e) {
           console.error("Gagal kirim pesan:", e);
       } finally {
@@ -220,7 +258,7 @@ export const useSidebarData = (currentUser: User, rawSessions: any[], activeSess
                 return {
                     ...session,
                     last_message_time: lastMsg ? new Date(lastMsg.created_at).getTime() : new Date(session.started_at).getTime(),
-                    last_message_text: lastMsg?.message || (lastMsg?.media_type ? '📎 Media' : 'Sesi chat aktif'),
+                    last_message_text: lastMsg?.message || (lastMsg?.media_type === 'audio' ? '🎙️ Pesan Suara' : lastMsg?.media_type ? '📎 Media' : 'Sesi chat aktif'),
                     unread_count: unreadCount
                 };
             });
@@ -242,35 +280,49 @@ export const useSidebarData = (currentUser: User, rawSessions: any[], activeSess
                      if (idx !== -1) {
                          const s = {...updated[idx]};
                          s.last_message_time = new Date(newMsg.created_at).getTime();
-                         s.last_message_text = newMsg.message || `📎 Media`;
+                         s.last_message_text = newMsg.message || (newMsg.media_type === 'audio' ? '🎙️ Pesan Suara' : '📎 Media');
 
                          if (newMsg.sender_username !== currentUser.username) {
                              if (activeSessionRef.current !== newMsg.session_id) {
                                  
-                                 // --- LOGIKA NOTIFIKASI LENGKAP ---
-                                 // 1. Bunyikan tres.mp3
-                                 const audio = new Audio('/sounds/tres.mp3');
-                                 audio.play().catch(() => {});
+                                 // AMBIL SETTINGAN TERBARU
+                                 const settings = getChatSettings();
 
-                                 // 2. Getar HP
-                                 if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-                                 
-                                 // 3. Popup Swal
-                                 if ((window as any).Swal) {
-                                     (window as any).Swal.fire({
-                                         toast: true,
-                                         position: 'top',
-                                         icon: 'success',
-                                         iconColor: '#00a884',
-                                         title: `Pesan baru dari ${s.counterpart_name}`,
-                                         text: s.last_message_text,
-                                         showConfirmButton: false,
-                                         timer: 4000,
-                                         background: '#202c33',
-                                         color: '#e9edef',
-                                         customClass: { popup: 'border border-[#222d34] rounded-[20px] shadow-2xl mt-4' }
-                                     });
+                                 // 1. CEK SUARA & VOLUME
+                                 if (settings.notifPesan !== false && settings.suaraMasuk !== false) {
+                                     const notifVol = (settings.notifVolume ?? 100) / 100;
+                                     const audio = new Audio('/sounds/tres.mp3');
+                                     audio.volume = notifVol;
+                                     audio.play().catch(() => {});
                                  }
+
+                                 // 2. CEK GETAR
+                                 if (settings.notifPesan !== false && navigator.vibrate) {
+                                     navigator.vibrate([200, 100, 200]);
+                                 }
+                                 
+                                 // 3. CEK SPANDUK (POPUP) & PRATINJAU Teks
+                                 if (settings.notifPesan !== false && settings.notifSpanduk !== false) {
+                                     if ((window as any).Swal) {
+                                         // Jika pratinjau dimatikan, sembunyikan teks aslinya
+                                         const displayText = settings.pratinjau !== false ? s.last_message_text : 'Pesan baru diterima.';
+                                         
+                                         (window as any).Swal.fire({
+                                             toast: true,
+                                             position: 'top',
+                                             icon: 'success',
+                                             iconColor: '#00a884',
+                                             title: `Pesan dari ${s.counterpart_name}`,
+                                             text: displayText,
+                                             showConfirmButton: false,
+                                             timer: 4000,
+                                             background: '#202c33',
+                                             color: '#e9edef',
+                                             customClass: { popup: 'border border-[#222d34] rounded-[20px] shadow-2xl mt-4' }
+                                         });
+                                     }
+                                 }
+                                 
                                  s.unread_count = (s.unread_count || 0) + 1;
                              }
                          }

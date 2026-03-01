@@ -848,48 +848,90 @@ export default function App() {
                     <h3 className="text-xl font-black uppercase tracking-widest text-white border-l-4 border-primary pl-4">Paket VIP</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {storeTypes.length > 0 ? storeTypes.map((item, index) => (
-                        <div key={index} className="relative bg-gray-900 border border-gray-800 rounded-[2rem] p-8 hover:-translate-y-2 transition-all duration-300 hover:border-primary group overflow-hidden flex flex-col shadow-xl">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-3xl -mr-16 -mt-16 transition-opacity group-hover:opacity-100 opacity-0"></div>
-                            <div className="mb-6">
-                                <span className="bg-primary/10 text-primary text-[10px] font-black uppercase px-3 py-1 rounded-full mb-4 inline-block tracking-widest">{item.typeCard}</span>
-                                <h3 className="text-2xl font-black text-white uppercase mb-2">{item.name}</h3>
-                                <div className="flex items-baseline gap-1">
-                                    <span className="text-3xl font-black text-white">Rp {formatNumber(item.price)}</span>
+                    {storeTypes.length > 0 ? storeTypes.map((item, index) => {
+                        // CEK APAKAH INI PAKET LEGENDARY
+                        const isLegendary = item.name.toLowerCase().includes('legendary') || item.typeCard.toLowerCase().includes('legendary');
+
+                        if (isLegendary) {
+                            // TAMPILAN KHUSUS LEGENDARY (NEON GLOW)
+                            return (
+                                <div key={index} className="card-legendary group">
+                                    <div className="mb-6">
+                                        <span className="text-pink-500 font-black uppercase text-xs tracking-widest mb-2 inline-block group-hover:text-black transition-colors">{item.typeCard}</span>
+                                        <h3 className="text-2xl font-black text-white uppercase mb-2 group-hover:text-black transition-colors">{item.name}</h3>
+                                        <div className="flex items-baseline gap-1">
+                                            <span className="text-3xl font-black text-white group-hover:text-black transition-colors">Rp {formatNumber(item.price)}</span>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-4 mb-8 flex-grow">
+                                        <div className="flex items-center gap-3 text-gray-400 text-sm group-hover:text-gray-800 transition-colors">
+                                            <Clock size={16} className="text-pink-500 shrink-0 group-hover:text-black transition-colors" />
+                                            <span>Durasi: <b className="text-white group-hover:text-black transition-colors">{item.duration}</b></span>
+                                        </div>
+                                        <div className="flex items-center gap-3 text-gray-400 text-sm group-hover:text-gray-800 transition-colors">
+                                            <Coins size={16} className="text-pink-500 shrink-0 group-hover:text-black transition-colors" />
+                                            <span>Batas Harian: <b className="text-white group-hover:text-black transition-colors">{formatNumber(item.tokenAmount)} Token</b></span>
+                                        </div>
+                                        <div className="pt-4 border-t border-gray-800/50 mt-4 group-hover:border-gray-400 transition-colors">
+                                            <ul className="card__bullets">
+                                                {String(item.description || '').split(',').map((descLine, i) => descLine.trim() && (
+                                                    <li key={i} className="text-gray-400 text-sm group-hover:text-black transition-colors">
+                                                        <Check size={16} className="text-pink-500 shrink-0 mt-0.5 group-hover:text-black transition-colors" />
+                                                        <span className="leading-relaxed font-medium">{descLine.trim()}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    <button className="card__cta cta" onClick={() => window.open(`https://wa.me/6281234567890?text=Saya ingin beli Rank VIP: ${item.name}`, '_blank')}>
+                                        Beli Rank Ini
+                                    </button>
+                                </div>
+                            );
+                        }
+
+                        // TAMPILAN NORMAL (SELAIN LEGENDARY)
+                        return (
+                            <div key={index} className="relative bg-gray-900 border border-gray-800 rounded-[2rem] p-8 hover:-translate-y-2 transition-all duration-300 hover:border-primary group overflow-hidden flex flex-col shadow-xl">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-3xl -mr-16 -mt-16 transition-opacity group-hover:opacity-100 opacity-0"></div>
+                                <div className="mb-6">
+                                    <span className="bg-primary/10 text-primary text-[10px] font-black uppercase px-3 py-1 rounded-full mb-4 inline-block tracking-widest">{item.typeCard}</span>
+                                    <h3 className="text-2xl font-black text-white uppercase mb-2">{item.name}</h3>
+                                    <div className="flex items-baseline gap-1">
+                                        <span className="text-3xl font-black text-white">Rp {formatNumber(item.price)}</span>
+                                    </div>
+                                </div>
+                                <div className="space-y-4 mb-8 flex-grow">
+                                    <div className="flex items-center gap-3 text-gray-400 text-sm">
+                                        <Clock size={16} className="text-primary shrink-0" />
+                                        <span>Durasi: <b className="text-white">{item.duration}</b></span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-gray-400 text-sm">
+                                        <Coins size={16} className="text-primary shrink-0" />
+                                        <span>Batas Harian: <b className="text-white">{formatNumber(item.tokenAmount)} Token</b></span>
+                                    </div>
+                                    <div className="pt-4 border-t border-gray-800 mt-4">
+                                        <ul className="space-y-3 mt-4">
+                                            {String(item.description || '').split(',').map((descLine, i) => descLine.trim() && (
+                                                <li key={i} className="flex items-start gap-3 text-gray-400 text-sm">
+                                                    <Check size={16} className="text-primary shrink-0 mt-0.5" />
+                                                    <span className="leading-relaxed">{descLine.trim()}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div className="mt-auto pt-6">
+                                   <button className="w-full py-4 bg-white text-black rounded-xl font-black uppercase text-xs tracking-widest hover:bg-primary hover:text-white transition-all shadow-lg hover:shadow-primary/25" onClick={() => window.open(`https://wa.me/6281234567890?text=Saya ingin beli Rank VIP: ${item.name}`, '_blank')}>Beli Rank</button>
                                 </div>
                             </div>
-                            <div className="space-y-4 mb-8 flex-grow">
-                                <div className="flex items-center gap-3 text-gray-400 text-sm">
-                                    <Clock size={16} className="text-primary shrink-0" />
-                                    <span>Durasi: <b className="text-white">{item.duration}</b></span>
-                                </div>
-                                <div className="flex items-center gap-3 text-gray-400 text-sm">
-                                    <Coins size={16} className="text-primary shrink-0" />
-                                    <span>Batas Harian: <b className="text-white">{formatNumber(item.tokenAmount)} Token</b></span>
-                                </div>
-                                <div className="pt-4 border-t border-gray-800 mt-4">
-                                    <ul className="space-y-3 mt-4">
-                                        {String(item.description || '').split(',').map((descLine, i) => descLine.trim() && (
-                                            <li key={i} className="flex items-start gap-3 text-gray-400 text-sm">
-                                                <Check size={16} className="text-primary shrink-0 mt-0.5" />
-                                                <span className="leading-relaxed">{descLine.trim()}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            </div>
-                            <div className="mt-auto pt-6">
-                               <button className="w-full py-4 bg-white text-black rounded-xl font-black uppercase text-xs tracking-widest hover:bg-primary hover:text-white transition-all shadow-lg hover:shadow-primary/25" onClick={() => window.open(`https://wa.me/6281234567890?text=Saya ingin beli Rank VIP: ${item.name}`, '_blank')}>Beli Rank</button>
-                            </div>
-                        </div>
-                    )) : (
+                        );
+                    }) : (
                         <div className="col-span-full text-center py-10 text-gray-500 font-bold uppercase tracking-widest">Tidak ada paket VIP yang tersedia.</div>
                     )}
                 </div>
             </div>
             )}
-        </div>
-      )}
 
         {currentView === 'genre' && (
              <div className="max-w-7xl mx-auto px-4 md:px-8 py-12">

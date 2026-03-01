@@ -11,6 +11,7 @@ interface AdminPanelProps {
   categories: string[]; setCategories: (categories: string[]) => void;
   refreshData: () => Promise<void>;
   storeTypes: any[]; storeTokens: any[]; storeOptions: StoreOptions;
+  currentUserRole: string; // MENERIMA ROLE UNTUK LOGIKA HIDE/SHOW
 }
 
 interface UserManagementData { username: string; nickname: string; type: string; status: string; token: string | number; lastReset: string; password?: string; ticketAccess?: boolean | string; }
@@ -18,34 +19,25 @@ interface UserManagementData { username: string; nickname: string; type: string;
 const showPopup = (title: string, text: string, icon: 'success' | 'error' | 'warning') => { (window as any).Swal.fire({ title, text, icon, background: '#1a1a1a', color: '#fff', confirmButtonColor: '#e50914', timer: icon === 'success' ? 2000 : undefined, showConfirmButton: icon !== 'success' }); };
 const formatPrice = (price: string | number) => { return new Intl.NumberFormat('id-ID').format(Number(price) || 0); };
 
-// =======================================================
-// HELPER: PEMBERSIH DURASI DARI KUTUKAN 1899 GOOGLE SHEETS
-// =======================================================
 const fixGoogleSheetsDate = (dur: string | number) => {
     if (!dur) return "00:00";
     let str = String(dur);
-    
-    // Hilangkan tanda kutip tunggal jika terbawa
     if (str.startsWith("'")) str = str.substring(1);
-    
-    // Jika kena kutukan 1899, ambil jamnya saja
     if (str.includes('T') && str.includes('Z')) {
         const match = str.match(/T(\d{2}:\d{2}:\d{2})/);
         if (match) {
             let time = match[1];
-            // Jika durasi cuma menitan (depannya 00:), hilangkan 00:-nya biar rapi
             if (time.startsWith('00:')) time = time.substring(3);
             return time;
         }
     }
-    // Hapus spasi tak kasat mata sisa percobaan sebelumnya
     return str.replace(/\u200B/g, '').trim(); 
 };
 
 // API KEY DOODSTREAM
 const DOOD_API_KEY = '557667ehqkgznsj6giueg5';
 
-export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categories, setCategories, refreshData, storeTypes, storeTokens, storeOptions }) => {
+export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categories, setCategories, refreshData, storeTypes, storeTokens, storeOptions, currentUserRole }) => {
   const [activeTab, setActiveTab] = useState('videos');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -82,6 +74,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
   const [selectedHistorySession, setSelectedHistorySession] = useState<any | null>(null);
   const [historyMessages, setHistoryMessages] = useState<any[]>([]);
 
+  // TENTUKAN TAB YANG BISA DIAKSES BERDASARKAN ROLE
+  const isDeveloper = currentUserRole === 'developer';
+  const availableTabs = isDeveloper 
+    ? ['videos', 'genres', 'users', 'store', 'talents'] 
+    : ['videos', 'genres', 'users'];
+
   const fetchUsers = async () => {
       setIsLoadingUsers(true);
       try {
@@ -109,7 +107,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
 
   useEffect(() => { 
       if (activeTab === 'users') fetchUsers(); 
-      if (activeTab === 'talents') fetchTalentsData();
+      if (activeTab === 'talents' && isDeveloper) fetchTalentsData();
   }, [activeTab]);
 
   useEffect(() => {
@@ -133,9 +131,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
     } catch (e: any) { showPopup('Error', e.message || 'Error occurred.', 'error'); } finally { setIsSubmitting(false); }
   };
 
-  // =======================================================
-  // FUNGSI UPLOAD DOODSTREAM DENGAN PROXY BARU YANG LEBIH TANGGUH
-  // =======================================================
   const processDoodUpload = async (file: File) => {
       if (!file) return;
       setIsSubmitting(true);
@@ -150,7 +145,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
       });
 
       try {
-          // Menggunakan corsproxy.io yang lebih bersahabat dengan Browser modern
           const doodApiUrl = `https://doodapi.co/api/upload/server?key=${DOOD_API_KEY}`;
           const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(doodApiUrl)}`;
           
@@ -164,7 +158,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                   throw new Error("Server DoodStream menolak request.");
               }
           } catch (e) {
-              // Fallback jika proxy pertama gagal
               const fallbackRes = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(doodApiUrl)}`);
               const fallbackData = await fallbackRes.json();
               if (fallbackData.status === 200) serverUrl = fallbackData.result;
@@ -208,26 +201,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                   duration: formattedDuration
               }));
               
-              (window as any).Swal.fire({
-                  title: 'Upload Berhasil!',
-                  text: 'Judul, Link, Thumbnail & Durasi telah diisi otomatis!',
-                  icon: 'success',
-                  background: '#1a1a1a',
-                  color: '#fff',
-                  timer: 2500
-              });
+              (window as any).Swal.fire({ title: 'Upload Berhasil!', text: 'Data telah diisi otomatis!', icon: 'success', background: '#1a1a1a', color: '#fff', timer: 2500 });
           } else {
               throw new Error("Respon tidak valid dari sisi DoodStream");
           }
       } catch (err: any) {
-          console.error("Error Upload Dood:", err);
-          (window as any).Swal.fire({
-              title: 'Gagal Fetch Data',
-              text: err.message || 'Koneksi terputus. Pastikan AdBlock mati dan koneksi stabil.',
-              icon: 'error',
-              background: '#1a1a1a',
-              color: '#fff'
-          });
+          (window as any).Swal.fire({ title: 'Gagal Fetch Data', text: err.message, icon: 'error', background: '#1a1a1a', color: '#fff' });
       } finally {
           setIsSubmitting(false);
           if (videoInputRef.current) videoInputRef.current.value = '';
@@ -249,20 +228,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
       else if (file) showPopup('Format Salah', 'Silakan upload file video (MP4, M4V, dll).', 'error');
   };
 
-  // =======================================================
-  // FUNGSI SIMPAN & EDIT YANG DIPERKUAT (ANTI ERROR NETWORK)
-  // =======================================================
   const handleSaveVideo = async () => {
     if (!formData.title || !formData.videoUrl) return showPopup('Peringatan', "Judul dan Link Video wajib diisi!", 'warning');
     setIsSubmitting(true);
     
     const finalGenre = formData.genre || 'Uncategorized';
-    
-    // TRIK APOSTROF: Memaksa Google Sheets membaca angka durasi sebagai STRING murni!
     let cleanDuration = formData.duration.replace(/'/g, '').trim();
     const finalDuration = "'" + cleanDuration; 
 
-    // Pastikan data yang dikirim bersih
     const payload = {
         action: editingOldTitle ? 'editVideo' : 'addVideo',
         old_judul: editingOldTitle ? editingOldTitle.trim() : undefined,
@@ -286,7 +259,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
           showPopup('Gagal Menyimpan', res.message || 'Terjadi kesalahan di sisi database.', 'error');
       }
     } catch (e: any) { 
-        console.error("Gagal Save/Edit:", e);
         showPopup('Error Jaringan', 'Gagal menghubungi server. Pastikan API URL benar.', 'error'); 
     } finally { 
         setIsSubmitting(false); 
@@ -305,9 +277,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
       });
   }
 
-  // =======================================================
-  // SAAT KLIK TOMBOL EDIT (MEMBERSIHKAN DURASI 1899 OTOMATIS)
-  // =======================================================
   const handleEditVideoClick = (v: Video) => {
       setEditingOldTitle(v.title); 
       setFormData({ 
@@ -457,8 +426,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 md:px-8 py-12">
+      
+      {/* FILTER TAB BERDASARKAN ROLE */}
       <div className="flex gap-4 mb-8 overflow-x-auto pb-4 custom-scrollbar">
-        {['videos', 'users', 'store', 'genres', 'talents'].map(t => (
+        {availableTabs.map(t => (
           <button key={t} onClick={() => setActiveTab(t)} className={`px-8 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest border transition-all ${activeTab === t ? 'bg-primary border-primary text-white shadow-lg shadow-primary/20' : 'bg-gray-900 border-gray-800 text-gray-500 hover:text-white hover:border-gray-600'}`}>
               {t}
           </button>
@@ -475,7 +446,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
               </h3>
               <div className="space-y-4">
                  
-                 {/* KOTAK DRAG & DROP DOODSTREAM */}
                  <div 
                      className={`p-6 border-2 border-dashed rounded-xl text-center cursor-pointer transition-all ${isDragging ? 'border-[#00a884] bg-[#00a884]/10' : 'border-gray-800 hover:border-gray-600 bg-black'}`}
                      onDragOver={handleDragOver}
@@ -567,7 +537,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
                                 {v.category.split(',').map((tag, tIdx) => (<span key={tIdx} className="bg-gray-800 text-gray-400 text-[9px] font-black px-1.5 py-0.5 rounded uppercase">{tag.trim()}</span>))}
-                                {/* DURASI DIBERSIHKAN DENGAN FUNGSI FIX KITA SEBELUM DITAMPILKAN */}
                                 <span className="text-gray-600 text-[10px] font-bold ml-auto">{fixGoogleSheetsDate(v.duration)}</span>
                             </div>
                             <h4 className="font-bold text-sm text-white truncate mb-1">{v.title}</h4>
@@ -575,7 +544,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                         </div>
                         <div className="flex flex-col gap-2">
                             <button onClick={() => handleEditVideoClick(v)} className="p-2 bg-gray-900 text-blue-400 rounded-lg hover:bg-blue-500/10 transition-colors"><Edit2 size={14}/></button>
-                            <button onClick={() => handleDeleteVideo(v.title)} className="p-2 bg-gray-900 text-red-400 rounded-lg hover:bg-red-500/10 transition-colors"><Trash2 size={14}/></button>
+                            {/* TOMBOL DELETE HANYA MUNCUL UNTUK DEVELOPER */}
+                            {isDeveloper && (
+                                <button onClick={() => handleDeleteVideo(v.title)} className="p-2 bg-gray-900 text-red-400 rounded-lg hover:bg-red-500/10 transition-colors"><Trash2 size={14}/></button>
+                            )}
                         </div>
                     </div>
                 ))}
@@ -584,8 +556,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
         </div>
       )}
 
-      {activeTab === 'store' && (
-        <div className="flex flex-col lg:flex-row gap-8">
+      {/* SISA TAB LAINNYA TETAP SAMA NAMUN HANYA DIRENDER JIKA TERMASUK DALAM availableTabs */}
+      {activeTab === 'store' && availableTabs.includes('store') && (
+         <div className="flex flex-col lg:flex-row gap-8">
             <div className="w-full lg:w-1/3 space-y-6">
                 <div className="bg-gray-900 border border-gray-800 p-8 rounded-[2rem]">
                     <div className="filter-switch-2 mb-8">
@@ -669,7 +642,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
         </div>
       )}
 
-      {activeTab === 'genres' && (
+      {activeTab === 'genres' && availableTabs.includes('genres') && (
         <div className="flex flex-col lg:flex-row gap-8">
             <div className="w-full lg:w-1/3 space-y-6">
                 <div className="bg-gray-900 border border-gray-800 p-8 rounded-[2rem]">
@@ -703,7 +676,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                             </div>
                             <div className="flex gap-2">
                                 <button onClick={() => { setEditingGenreName(cat); setGenreInput(cat); window.scrollTo({top:0, behavior:'smooth'}); }} className="p-2 bg-gray-900 text-blue-400 rounded-lg hover:bg-blue-500/10 transition-colors"><Edit2 size={16}/></button>
-                                <button onClick={() => handleDeleteGenre(cat)} className="p-2 bg-gray-900 text-red-400 rounded-lg hover:bg-red-500/10 transition-colors"><Trash2 size={16}/></button>
+                                {/* TOMBOL HAPUS GENRE HANYA UNTUK DEVELOPER */}
+                                {isDeveloper && (
+                                    <button onClick={() => handleDeleteGenre(cat)} className="p-2 bg-gray-900 text-red-400 rounded-lg hover:bg-red-500/10 transition-colors"><Trash2 size={16}/></button>
+                                )}
                             </div>
                         </div>
                     ))}
@@ -712,7 +688,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
         </div>
       )}
 
-      {activeTab === 'users' && (
+      {activeTab === 'users' && availableTabs.includes('users') && (
         <div className="bg-gray-900 border border-gray-800 rounded-[2.5rem] p-10">
           <div className="flex flex-col items-center mb-6">
               <div className="w-full max-w-2xl"><SearchInput value={userSearch} onChange={e => setUserSearch(e.target.value)} placeholder="Search Username..." onFilterClick={() => setIsUserFilterOpen(!isUserFilterOpen)} /></div>
@@ -723,7 +699,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                           <button onClick={() => setIsUserFilterOpen(false)} className="text-gray-500 hover:text-white"><X size={16}/></button>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                          {['All', 'Free', 'Premium', 'Donatur', 'Talent', 'Admin'].map(role => (
+                          {['All', 'Free', 'Premium', 'Donatur', 'Talent', 'Admin', 'Developer'].map(role => (
                               <button key={role} onClick={() => setUserFilterType(role)} className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${userFilterType === role ? 'bg-primary border-primary text-white shadow-lg shadow-primary/25' : 'bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-600 hover:text-white'}`}>{role}</button>
                           ))}
                       </div>
@@ -743,7 +719,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                     <td className="text-xs text-gray-400 font-bold uppercase">{u.type}</td>
                     <td><span className={`text-[10px] font-black uppercase px-2 py-1 rounded ${u.status === 'Active' ? 'bg-green-900/20 text-green-500' : 'bg-red-900/20 text-red-500'}`}>{u.status}</span></td>
                     <td className="font-bold text-primary">{u.token}</td>
-                    <td className="text-right py-4 pr-4"><button className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-white bg-gray-800 px-3 py-1.5 rounded-lg transition-colors" onClick={() => handleEditUser(u)}>Edit</button></td>
+                    <td className="text-right py-4 pr-4">
+                        {isDeveloper ? (
+                            <button className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-white bg-gray-800 px-3 py-1.5 rounded-lg transition-colors" onClick={() => handleEditUser(u)}>Edit</button>
+                        ) : (
+                            <span className="text-[10px] text-gray-600 uppercase font-bold tracking-widest">Hanya Lihat</span>
+                        )}
+                    </td>
                 </tr>
               ))}
             </tbody>
@@ -751,7 +733,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
         </div>
       )}
 
-      {isUserModalOpen && (
+      {isUserModalOpen && isDeveloper && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsUserModalOpen(false)}></div>
           <div className="relative bg-gray-900 border border-gray-800 p-10 rounded-[2.5rem] w-full max-w-md shadow-2xl animate-[scaleIn_0.2s_ease-out]">
@@ -762,7 +744,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
               <div className="flex gap-4">
                   <div className="flex-1"><label className="text-[10px] font-black uppercase text-gray-500 mb-1 block flex items-center gap-2"><Shield size={10}/> Role</label>
                     <select className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none" value={editingUser.type} onChange={e => setEditingUser({...editingUser, type: e.target.value})}>
-                        <option value="Free">Free</option><option value="Premium">Premium</option><option value="Donatur">Donatur</option><option value="Talent">Talent</option><option value="Admin">Admin</option>
+                        <option value="Free">Free</option><option value="Premium">Premium</option><option value="Donatur">Donatur</option><option value="Talent">Talent</option><option value="Admin">Admin</option><option value="Developer">Developer</option>
                     </select>
                   </div>
                   <div className="flex-1"><label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">Status</label>
@@ -781,10 +763,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
         </div>
       )}
 
-      {/* ======================================================= */}
-      {/* MENU TALENT & RIWAYAT CHAT (ADMIN) */}
-      {/* ======================================================= */}
-      {activeTab === 'talents' && (
+      {activeTab === 'talents' && availableTabs.includes('talents') && (
         <div className="bg-gray-900 border border-gray-800 rounded-[2.5rem] p-10">
           
           <div className="flex bg-black p-1 rounded-xl mb-8 border border-gray-800 w-full max-w-3xl mx-auto">
@@ -794,7 +773,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
               <button onClick={() => setSubTabTalent('balance')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${subTabTalent === 'balance' ? 'bg-primary text-white' : 'text-gray-500 hover:text-white'}`}>Balance Admin</button>
           </div>
 
-          {/* TAB BALANCE ADMIN (BARU) */}
           {subTabTalent === 'balance' && (
               <div className="bg-gradient-to-br from-green-600 to-emerald-800 rounded-3xl p-10 shadow-2xl text-center relative overflow-hidden max-w-2xl mx-auto mt-10 animate-[scaleIn_0.2s_ease-out]">
                   <div className="absolute top-0 right-0 p-4 opacity-20"><Wallet size={120}/></div>
@@ -806,11 +784,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
               </div>
           )}
 
-          {/* JIKA ADMIN SEDANG MEMBUKA CHAT TERTENTU DARI RIWAYAT */}
           {subTabTalent === 'history' && selectedHistorySession ? (
               <div className="bg-black border border-gray-800 rounded-3xl overflow-hidden flex flex-col h-[700px] animate-[fadeIn_0.2s_ease-out]">
                   
-                  {/* HEADER CHAT ADMIN */}
                   <div className="bg-gray-900 p-4 flex justify-between items-center border-b border-gray-800 shrink-0">
                       <button onClick={() => setSelectedHistorySession(null)} className="text-gray-400 hover:text-white p-2 rounded-full hover:bg-gray-800 transition-colors"><ChevronLeft size={24}/></button>
                       <div className="text-center">
@@ -820,7 +796,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                       <div className="w-10"></div>
                   </div>
 
-                  {/* AREA BACA PESAN (GOD MODE) */}
                   <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-[#0b141a]">
                       {historyMessages.length === 0 ? (
                           <div className="flex justify-center items-center h-full text-gray-500"><Loader2 className="animate-spin"/></div>
@@ -838,7 +813,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                                               ) : (
                                                   <img src={msg.media_url} className={`max-w-xs rounded-lg ${msg.is_view_once ? 'border-2 border-red-500/50' : ''}`} />
                                               )}
-                                              {/* LABEL KHUSUS ADMIN JIKA ITU VIEW ONCE */}
                                               {msg.is_view_once && <div className="text-[9px] text-red-500 font-black mt-1.5 uppercase tracking-widest flex items-center gap-1"><EyeOff size={10}/> VIEW ONCE MEDIA (ADMIN BYPASS)</div>}
                                           </div>
                                       )}
@@ -851,7 +825,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                       })}
                   </div>
 
-                  {/* AREA BUTTON BAWAH */}
                   <div className="p-6 bg-gray-900 border-t border-gray-800 shrink-0 space-y-3">
                       {!selectedHistorySession.is_paid && (
                           <button onClick={() => handleConfirmSalary(selectedHistorySession.session_id)} disabled={isSubmitting} className="w-full bg-green-600 hover:bg-green-700 text-white font-black py-4 rounded-xl flex items-center justify-center gap-2 uppercase tracking-widest transition-all shadow-lg hover:shadow-green-500/25">
@@ -866,7 +839,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                   </div>
               </div>
           ) : (
-              // TABEL DATA (PENDING / ACTIVE / HISTORY) (Jangan render table jika di tab balance)
               subTabTalent !== 'balance' && (
               <table className="w-full text-left">
                 <thead>

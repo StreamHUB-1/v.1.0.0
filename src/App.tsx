@@ -369,7 +369,8 @@ export default function App() {
       toast.error('Fitur Withdraw sedang dalam perbaikan. Silakan tunggu.', { icon: '🚧' });
   };
 
-  const filteredVideos = videos.filter(v => {
+  // Tambahin [...videos].reverse() tepat sebelum .filter
+  const filteredVideos = [...videos].reverse().filter(v => {
       const cat = v.category ? String(v.category) : '';
       const videoGenres = cat.split(',').map(g => g.trim());
       const isCategoryMatch = selectedCategories.includes('All') || videoGenres.some(g => selectedCategories.includes(g));

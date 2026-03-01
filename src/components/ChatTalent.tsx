@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, CheckCheck, Send, MoreVertical, Search, Loader2, MessageCircle, Plus, Smile, X, Mic, Trash2 } from 'lucide-react';
+import { ArrowLeft, CheckCheck, Send, MoreVertical, Search, Loader2, MessageCircle, Plus, Smile, X, Mic, Trash2, Settings } from 'lucide-react';
 import EmojiPicker, { Theme } from 'emoji-picker-react';
 import { User } from '../types';
 import dayjs from 'dayjs';
@@ -12,6 +12,16 @@ interface ChatTalentProps {
   onImageZoom?: (url: string) => void;
 }
 
+// KOMPONEN TOGGLE CUSTOM ALA WHATSAPP
+const ToggleSwitch = ({ checked, onChange }: { checked: boolean, onChange: () => void }) => (
+    <div 
+        className={`w-10 h-5 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-300 ${checked ? 'bg-[#00a884]' : 'bg-gray-600'}`}
+        onClick={onChange}
+    >
+        <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${checked ? 'translate-x-4' : 'translate-x-0'}`}></div>
+    </div>
+);
+
 // ==========================================
 // 1. KOMPONEN UTAMA: DAFTAR SESI CHAT
 // ==========================================
@@ -19,6 +29,33 @@ export const ChatTalent: React.FC<ChatTalentProps> = ({ currentUser, onBack, onI
   const [rawSessions, setRawSessions] = useState<any[]>([]);
   const [activeSession, setActiveSession] = useState<any | null>(null);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
+
+  // STATE UNTUK PENGATURAN (SETTINGS)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [chatSettings, setChatSettings] = useState({
+      notifSpanduk: true,
+      lencanaTaskbar: true,
+      notifPesan: true,
+      pratinjau: true,
+      notifReaksi: true,
+      reaksiStatus: true,
+      suaraMasuk: true,
+      suaraKeluar: false,
+      volume: 50
+  });
+
+  // Load settingan dari Local Storage pas pertama kali buka
+  useEffect(() => {
+      const savedSettings = localStorage.getItem('streamhub_chat_settings');
+      if (savedSettings) {
+          try { setChatSettings(JSON.parse(savedSettings)); } catch (e) {}
+      }
+  }, []);
+
+  // Save ke Local Storage tiap kali ada perubahan setting
+  useEffect(() => {
+      localStorage.setItem('streamhub_chat_settings', JSON.stringify(chatSettings));
+  }, [chatSettings]);
 
   useEffect(() => {
     const fetchSessions = async () => {
@@ -45,9 +82,133 @@ export const ChatTalent: React.FC<ChatTalentProps> = ({ currentUser, onBack, onI
   const enrichedSessions = useSidebarData(currentUser, rawSessions, activeSession?.session_id || null);
   const safeEnrichedSessions = Array.isArray(enrichedSessions) ? enrichedSessions : [];
 
+  const updateSetting = (key: keyof typeof chatSettings, value: any) => {
+      setChatSettings(prev => ({ ...prev, [key]: value }));
+  };
+
+  // KOMPONEN MODAL PENGATURAN
+  const SettingsModal = () => (
+      <div className={`fixed inset-0 z-[999] bg-[#111b21] transition-transform duration-300 transform ${isSettingsOpen ? 'translate-x-0' : 'translate-x-full'} flex flex-col`}>
+          {/* Header Settings */}
+          <div className="bg-[#202c33] px-4 py-4 flex items-center gap-6 shadow-md shrink-0">
+              <button onClick={() => setIsSettingsOpen(false)} className="text-gray-400 hover:text-white transition-colors">
+                  <ArrowLeft size={24} />
+              </button>
+              <h2 className="text-[#e9edef] font-bold text-lg">Pengaturan Chat & Notifikasi</h2>
+          </div>
+
+          {/* Konten Settings */}
+          <div className="flex-1 overflow-y-auto p-6 custom-scrollbar text-[#e9edef] space-y-8">
+              
+              {/* Seksi Notifikasi */}
+              <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                      <div>
+                          <p className="font-medium text-[15px]">Tampilkan spanduk notifikasi</p>
+                          <p className="text-xs text-gray-500">Selalu muncul di layar</p>
+                      </div>
+                      <ToggleSwitch checked={chatSettings.notifSpanduk} onChange={() => updateSetting('notifSpanduk', !chatSettings.notifSpanduk)} />
+                  </div>
+                  <div className="flex justify-between items-center">
+                      <div>
+                          <p className="font-medium text-[15px]">Tampilkan lencana notifikasi taskbar</p>
+                          <p className="text-xs text-gray-500">Selalu muncul angka unread</p>
+                      </div>
+                      <ToggleSwitch checked={chatSettings.lencanaTaskbar} onChange={() => updateSetting('lencanaTaskbar', !chatSettings.lencanaTaskbar)} />
+                  </div>
+              </div>
+
+              <div className="h-[1px] bg-gray-800 w-full my-4"></div>
+
+              {/* Seksi Pesan */}
+              <div>
+                  <h3 className="text-[#00a884] text-sm font-bold mb-4">Pesan</h3>
+                  <div className="space-y-6">
+                      <div className="flex justify-between items-center">
+                          <div>
+                              <p className="font-medium text-[15px]">Notifikasi pesan</p>
+                              <p className="text-xs text-gray-500">Tampilkan notifikasi untuk pesan baru</p>
+                          </div>
+                          <ToggleSwitch checked={chatSettings.notifPesan} onChange={() => updateSetting('notifPesan', !chatSettings.notifPesan)} />
+                      </div>
+                      <div className="flex justify-between items-center">
+                          <div>
+                              <p className="font-medium text-[15px]">Tampilkan pratinjau</p>
+                              <p className="text-xs text-gray-500">Tampilkan isi pesan di notifikasi</p>
+                          </div>
+                          <ToggleSwitch checked={chatSettings.pratinjau} onChange={() => updateSetting('pratinjau', !chatSettings.pratinjau)} />
+                      </div>
+                      <div className="flex justify-between items-center">
+                          <div>
+                              <p className="font-medium text-[15px]">Tampilkan notifikasi reaksi</p>
+                          </div>
+                          <ToggleSwitch checked={chatSettings.notifReaksi} onChange={() => updateSetting('notifReaksi', !chatSettings.notifReaksi)} />
+                      </div>
+                      <div className="flex justify-between items-center">
+                          <div>
+                              <p className="font-medium text-[15px]">Reaksi status</p>
+                              <p className="text-xs text-gray-500">Tampilkan notifikasi ketika ada yang menyukai status</p>
+                          </div>
+                          <ToggleSwitch checked={chatSettings.reaksiStatus} onChange={() => updateSetting('reaksiStatus', !chatSettings.reaksiStatus)} />
+                      </div>
+                  </div>
+              </div>
+
+              <div className="h-[1px] bg-gray-800 w-full my-4"></div>
+
+              {/* Seksi Suara */}
+              <div>
+                  <h3 className="text-[#00a884] text-sm font-bold mb-4">Nada notifikasi</h3>
+                  <div className="space-y-6">
+                      <div className="flex justify-between items-center">
+                          <div>
+                              <p className="font-medium text-[15px]">Suara pesan masuk</p>
+                              <p className="text-xs text-gray-500">Putar suara untuk pesan masuk</p>
+                          </div>
+                          <ToggleSwitch checked={chatSettings.suaraMasuk} onChange={() => updateSetting('suaraMasuk', !chatSettings.suaraMasuk)} />
+                      </div>
+                      <div className="flex justify-between items-center">
+                          <div>
+                              <p className="font-medium text-[15px]">Suara pesan keluar</p>
+                              <p className="text-xs text-gray-500">Putar suara untuk pesan keluar</p>
+                          </div>
+                          <ToggleSwitch checked={chatSettings.suaraKeluar} onChange={() => updateSetting('suaraKeluar', !chatSettings.suaraKeluar)} />
+                      </div>
+
+                      {/* SLIDER CUSTOM DARI USER */}
+                      <div className="pt-4">
+                          <p className="font-medium text-[15px] mb-2">Volume VN & Video</p>
+                          <label className="slider">
+                              <input 
+                                  type="range" 
+                                  className="level" 
+                                  min="0" 
+                                  max="100" 
+                                  value={chatSettings.volume} 
+                                  onChange={(e) => updateSetting('volume', e.target.value)} 
+                              />
+                              <svg className="volume" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 24 24">
+                                  <g>
+                                      <path d="M18.36 19.36a1 1 0 0 1-.705-1.71C19.167 16.148 20 14.142 20 12s-.833-4.148-2.345-5.65a1 1 0 1 1 1.41-1.419C20.958 6.812 22 9.322 22 12s-1.042 5.188-2.935 7.069a.997.997 0 0 1-.705.291z" fill="currentColor"></path>
+                                      <path d="M15.53 16.53a.999.999 0 0 1-.703-1.711C15.572 14.082 16 13.054 16 12s-.428-2.082-1.173-2.819a1 1 0 1 1 1.406-1.422A6 6 0 0 1 18 12a6 6 0 0 1-1.767 4.241.996.996 0 0 1-.703.289zM12 22a1 1 0 0 1-.707-.293L6.586 17H4c-1.103 0-2-.897-2-2V9c0-1.103.897-2 2-2h2.586l4.707-4.707A.998.998 0 0 1 13 3v18a1 1 0 0 1-1 1z" fill="currentColor"></path>
+                                  </g>
+                              </svg>
+                          </label>
+                      </div>
+
+                  </div>
+              </div>
+
+          </div>
+      </div>
+  );
+
   if (!activeSession) {
     return (
-      <div className="flex flex-col h-full bg-[#111b21] z-[100] relative w-full max-w-4xl mx-auto border-x border-gray-800">
+      <div className="flex flex-col h-full bg-[#111b21] z-[100] relative w-full max-w-4xl mx-auto border-x border-gray-800 overflow-hidden">
+        
+        <SettingsModal />
+
         <div className="bg-[#202c33] px-4 py-4 flex items-center gap-4 z-10 shadow-md">
           <button onClick={onBack} className="text-gray-400 hover:text-white transition-colors">
             <ArrowLeft size={24} />
@@ -69,19 +230,11 @@ export const ChatTalent: React.FC<ChatTalentProps> = ({ currentUser, onBack, onI
                    }
                 }}
              />
+             {/* TOMBOL PENGATURAN */}
              <MoreVertical 
                 size={20} 
                 className="cursor-pointer hover:text-white transition-colors"
-                onClick={() => {
-                   if ((window as any).Swal) {
-                       (window as any).Swal.fire({
-                           toast: true, position: 'top', icon: 'info',
-                           title: 'Menu Opsi segera hadir!',
-                           showConfirmButton: false, timer: 2000,
-                           background: '#202c33', color: '#e9edef'
-                       });
-                   }
-                }}
+                onClick={() => setIsSettingsOpen(true)}
              />
           </div>
         </div>
@@ -132,6 +285,8 @@ export const ChatTalent: React.FC<ChatTalentProps> = ({ currentUser, onBack, onI
       session={activeSession} 
       onBack={() => setActiveSession(null)} 
       onImageZoom={onImageZoom}
+      onOpenSettings={() => setIsSettingsOpen(true)} // PASSING FUNGSI BUKA SETTINGS
+      chatVolume={chatSettings.volume} // PASSING VOLUME KE ROOM
       onSessionEnded={(sessionId) => {
           setRawSessions(prev => prev.filter(s => s.session_id !== sessionId));
           setActiveSession(null);
@@ -144,7 +299,7 @@ export const ChatTalent: React.FC<ChatTalentProps> = ({ currentUser, onBack, onI
 // ==========================================
 // 2. KOMPONEN RUANG CHAT (ROOM)
 // ==========================================
-const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }: { currentUser: User, session: any, onBack: () => void, onImageZoom?: (url: string) => void, onSessionEnded: (id: string) => void }) => {
+const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded, onOpenSettings, chatVolume }: { currentUser: User, session: any, onBack: () => void, onImageZoom?: (url: string) => void, onSessionEnded: (id: string) => void, onOpenSettings: () => void, chatVolume: number }) => {
   
   const { messages, isLoading, isUploading, sendMessage, addReaction, isCounterpartTyping, isCounterpartOnline, sendTypingEvent } = useTalentChat(currentUser, session.session_id);
   const safeMessages = Array.isArray(messages) ? messages : [];
@@ -154,20 +309,25 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
   const [replyTo, setReplyTo] = useState<any | null>(null);
   const [activeReactionMsgId, setActiveReactionMsgId] = useState<number | null>(null);
   
-  // STATE UNTUK VOICE NOTE YANG SUDAH DIPERBAIKI
+  // STATE UNTUK VOICE NOTE
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<BlobPart[]>([]);
-  
-  // SATPAM ANTI-BOCOR: Memastikan rekaman yang dibatalkan tidak dikirim
   const isCancelledRef = useRef(false); 
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   let pressTimer: NodeJS.Timeout;
 
-  // SCROLL OTOMATIS KE BAWAH
+  // Atur Volume Element Video/Audio secara global setiap kali ter-render
+  useEffect(() => {
+      const mediaElements = document.querySelectorAll('audio, video');
+      mediaElements.forEach((el: any) => {
+          el.volume = chatVolume / 100;
+      });
+  });
+
   useEffect(() => {
     const handleScroll = () => {
       if (messagesEndRef.current) {
@@ -182,7 +342,6 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
     return () => clearTimeout(timer);
   }, [safeMessages.length, isCounterpartTyping]);
 
-  // FIX BUG 1: TIMER BERJALAN DENGAN BENAR (BEBAS STUCK 0:00)
   useEffect(() => {
       let interval: NodeJS.Timeout;
       if (isRecording) {
@@ -190,7 +349,7 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
               setRecordingTime(prev => prev + 1);
           }, 1000);
       } else {
-          setRecordingTime(0); // Reset timer pas berhenti rekaman
+          setRecordingTime(0); 
       }
       return () => clearInterval(interval);
   }, [isRecording]);
@@ -217,9 +376,6 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
       }
   };
 
-  // =========================================================
-  // LOGIKA VOICE NOTE (ANTI BOCOR & REALTIME FIX)
-  // =========================================================
   const startRecording = async () => {
       try {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -227,29 +383,23 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
           
           mediaRecorderRef.current = mediaRecorder;
           audioChunksRef.current = [];
-          isCancelledRef.current = false; // Reset satpam ke status aman
+          isCancelledRef.current = false; 
 
           mediaRecorder.ondataavailable = (event) => {
               if (event.data.size > 0) audioChunksRef.current.push(event.data);
           };
 
           mediaRecorder.onstop = async () => {
-              stream.getTracks().forEach(track => track.stop()); // Matikan icon mic di browser
-              
-              // FIX BUG 2: Kalo dibatalkan (Cancel), langsung stop dan JANGAN upload!
-              if (isCancelledRef.current) {
-                  return;
-              }
+              stream.getTracks().forEach(track => track.stop()); 
+              if (isCancelledRef.current) return;
 
               if (audioChunksRef.current.length > 0) {
-                  // FIX BUG 3: Format disesuaikan agar Realtime jalan di iPhone/Android
                   const mimeType = mediaRecorder.mimeType || 'audio/webm';
                   const extension = mimeType.includes('mp4') ? 'm4a' : 'webm';
                   
                   const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
                   const audioFile = new File([audioBlob], `VN_${Date.now()}.${extension}`, { type: mimeType });
                   
-                  // Menggunakan await agar state realtime Supabase menangkap sinyal dengan sempurna
                   await sendMessage('', audioFile, false, replyTo?.id);
                   setReplyTo(null);
               }
@@ -272,7 +422,7 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
   };
 
   const stopAndSendRecording = () => {
-      isCancelledRef.current = false; // Pastikan statusnya AMAN (Bukan Batal)
+      isCancelledRef.current = false;
       if (mediaRecorderRef.current && isRecording) {
           mediaRecorderRef.current.stop();
       }
@@ -280,7 +430,7 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
   };
 
   const cancelRecording = () => {
-      isCancelledRef.current = true; // AKTIFKAN SATPAM! Jangan biarkan file dikirim!
+      isCancelledRef.current = true; 
       if (mediaRecorderRef.current && isRecording) {
           mediaRecorderRef.current.stop();
       }
@@ -292,8 +442,6 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
       const s = seconds % 60;
       return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
-
-  // =========================================================
 
   const handleDoubleTap = (msg: any) => setActiveReactionMsgId(msg.id);
 
@@ -315,57 +463,48 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
 
   const getReplyMessage = (replyId: number) => safeMessages.find((m: any) => m.id === replyId);
 
+  // Menu Dropdown Pilihan Kanan Atas
+  const handleMenuKananAtas = () => {
+      if ((window as any).Swal) {
+          (window as any).Swal.fire({
+              title: 'Opsi Obrolan',
+              showDenyButton: true,
+              showCancelButton: true,
+              confirmButtonText: 'Pengaturan Notifikasi',
+              denyButtonText: `Akhiri Sesi Ini`,
+              cancelButtonText: 'Tutup',
+              confirmButtonColor: '#00a884',
+              denyButtonColor: '#e50914',
+              background: '#202c33',
+              color: '#e9edef'
+          }).then((result: any) => {
+              if (result.isConfirmed) {
+                  onBack(); // Mundur ke list dulu biar modal keliatan penuh
+                  setTimeout(() => onOpenSettings(), 100); // Buka modal pengaturan
+              } else if (result.isDenied) {
+                  handleEndChat();
+              }
+          });
+      }
+  };
+
   const handleEndChat = () => {
       if ((window as any).Swal) {
           (window as any).Swal.fire({
               title: 'Akhiri Sesi Chat?',
               text: "Sesi ini akan ditutup dan dipindahkan ke Riwayat Admin.",
-              icon: 'warning',
-              showCancelButton: true,
-              confirmButtonColor: '#00a884',
-              cancelButtonColor: '#2a3942',
-              confirmButtonText: 'Ya, Akhiri',
-              cancelButtonText: 'Batal',
-              background: '#202c33',
-              color: '#e9edef'
+              icon: 'warning', showCancelButton: true, confirmButtonColor: '#00a884', cancelButtonColor: '#2a3942', confirmButtonText: 'Ya, Akhiri', cancelButtonText: 'Batal', background: '#202c33', color: '#e9edef'
           }).then(async (result: any) => {
               if (result.isConfirmed) {
                   try {
-                      (window as any).Swal.fire({
-                          title: 'Menutup sesi...',
-                          allowOutsideClick: false,
-                          background: '#202c33',
-                          color: '#e9edef',
-                          didOpen: () => {
-                              (window as any).Swal.showLoading();
-                          }
-                      });
-
+                      (window as any).Swal.fire({ title: 'Menutup sesi...', allowOutsideClick: false, background: '#202c33', color: '#e9edef', didOpen: () => { (window as any).Swal.showLoading(); }});
                       const res = await api.endChat(session.session_id);
-
                       if (res.status === 'success') {
-                          (window as any).Swal.fire({
-                              title: 'Sesi Diakhiri',
-                              text: 'Berhasil dipindahkan ke kontrol Admin.',
-                              icon: 'success',
-                              showConfirmButton: false,
-                              timer: 1500,
-                              background: '#202c33',
-                              color: '#e9edef'
-                          });
+                          (window as any).Swal.fire({ title: 'Sesi Diakhiri', text: 'Berhasil dipindahkan ke kontrol Admin.', icon: 'success', showConfirmButton: false, timer: 1500, background: '#202c33', color: '#e9edef'});
                           onSessionEnded(session.session_id);
-                      } else {
-                          throw new Error('Gagal dari server');
-                      }
+                      } else throw new Error('Gagal dari server');
                   } catch (error) {
-                      console.error("Gagal end chat:", error);
-                      (window as any).Swal.fire({
-                          title: 'Gagal',
-                          text: 'Gagal mengakhiri sesi, coba lagi.',
-                          icon: 'error',
-                          background: '#202c33',
-                          color: '#e9edef'
-                      });
+                      (window as any).Swal.fire({ title: 'Gagal', text: 'Gagal mengakhiri sesi, coba lagi.', icon: 'error', background: '#202c33', color: '#e9edef'});
                   }
               }
           });
@@ -399,7 +538,7 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
             </div>
           </div>
         </div>
-        <button onClick={handleEndChat} className="text-gray-400 hover:text-white transition-colors">
+        <button onClick={handleMenuKananAtas} className="text-gray-400 hover:text-white transition-colors">
           <MoreVertical size={20} />
         </button>
       </div>
@@ -407,13 +546,7 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
       {/* AREA CHAT DENGAN BACKGROUND WA */}
       <div 
         className="flex-1 overflow-y-auto p-4 custom-scrollbar relative"
-        style={{
-            backgroundImage: `url('https://i.pinimg.com/736x/8c/98/99/8c98994518b575bfd8c949e91d20548b.jpg')`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundBlendMode: 'overlay',
-            backgroundColor: 'rgba(11, 20, 26, 0.92)' 
-        }}
+        style={{ backgroundImage: `url('https://i.pinimg.com/736x/8c/98/99/8c98994518b575bfd8c949e91d20548b.jpg')`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundBlendMode: 'overlay', backgroundColor: 'rgba(11, 20, 26, 0.92)' }}
         onClick={() => { setActiveReactionMsgId(null); setShowEmoji(false); }}
       >
         <div className="relative z-10 flex flex-col gap-3 pb-4">
@@ -421,13 +554,10 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
             const isMyMessage = msg.sender_username === currentUser.username;
             const repliedMsg = msg.reply_to_id ? getReplyMessage(msg.reply_to_id) : null;
             const hasReactions = msg.reactions && Object.keys(msg.reactions).length > 0;
-            
-            // CEK TIPE MEDIA AUDIO (Deteksi Realtime MimeType)
             const isAudio = msg.media_type === 'audio' || (msg.media_url && (msg.media_url.includes('.webm') || msg.media_url.includes('.m4a') || msg.media_url.includes('.mp3')));
 
             return (
               <div key={msg.id || msg.created_at} className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'} relative`}>
-                {/* EMOJI MENU PADA 2X TAP */}
                 {activeReactionMsgId === msg.id && (
                     <div className={`absolute -top-12 ${isMyMessage ? 'right-0' : 'left-0'} bg-[#2a3942] border border-gray-700 rounded-full shadow-2xl flex items-center gap-1.5 px-3 py-1.5 z-50 animate-[scaleIn_0.2s_ease-out]`}>
                         {['❤️', '👍', '😂', '😮', '😢', '🙏'].map(emoji => (
@@ -439,9 +569,7 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
                 )}
 
                 <div 
-                    className={`relative max-w-[80%] px-3 pt-2 pb-1.5 rounded-xl shadow-md transition-all ${
-                      isMyMessage ? 'bg-[#005c4b] text-[#e9edef] rounded-tr-none' : 'bg-[#202c33] text-[#e9edef] rounded-tl-none'
-                    }`}
+                    className={`relative max-w-[80%] px-3 pt-2 pb-1.5 rounded-xl shadow-md transition-all ${isMyMessage ? 'bg-[#005c4b] text-[#e9edef] rounded-tr-none' : 'bg-[#202c33] text-[#e9edef] rounded-tl-none'}`}
                     onDoubleClick={(e) => { e.stopPropagation(); handleDoubleTap(msg); }}
                     onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(msg); }}
                     onTouchEnd={handleTouchEnd}
@@ -454,16 +582,15 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
                       </div>
                   )}
 
-                  {/* RENDER MEDIA GAMBAR */}
                   {msg.media_url && !isAudio && (
                       <div className="mb-2 cursor-pointer rounded-lg overflow-hidden border border-white/10" onClick={(e) => { e.stopPropagation(); onImageZoom && onImageZoom(msg.media_url!); }}>
                           <img src={msg.media_url} alt="Attachment" className="max-w-full h-auto max-h-64 object-cover" />
                       </div>
                   )}
 
-                  {/* RENDER MEDIA AUDIO (VOICE NOTE) */}
                   {msg.media_url && isAudio && (
                       <div className="mb-1 mt-1">
+                          {/* Volume dikendalikan oleh fungsi useEffect global di atas */}
                           <audio controls src={msg.media_url} className="max-w-full h-10 rounded outline-none" />
                       </div>
                   )}
@@ -513,7 +640,6 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
               </div>
           )}
 
-          {/* KONDISI TAMPILAN: JIKA SEDANG MEREKAM vs JIKA TIDAK MEREKAM */}
           {isRecording ? (
               <div className="flex items-center justify-between bg-[#2a3942] rounded-full px-4 py-2 mx-1 animate-[fadeIn_0.2s_ease-out]">
                   <div className="flex items-center gap-3">
@@ -543,7 +669,6 @@ const ChatRoom = ({ currentUser, session, onBack, onImageZoom, onSessionEnded }:
                   disabled={isUploading}
                 />
                 
-                {/* JIKA ADA TEKS MAKA TOMBOL SEND, JIKA KOSONG MAKA TOMBOL MIC */}
                 {inputText.trim() ? (
                     <button type="submit" className="send-btn-modern shrink-0" disabled={isUploading}>
                         <Send size={18} />

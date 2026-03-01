@@ -86,121 +86,130 @@ export const ChatTalent: React.FC<ChatTalentProps> = ({ currentUser, onBack, onI
       setChatSettings(prev => ({ ...prev, [key]: value }));
   };
 
-  // KOMPONEN MODAL PENGATURAN
+  // KOMPONEN MODAL PENGATURAN (DIPERBAIKI UNTUK TAMPILAN DESKTOP)
   const SettingsModal = () => (
-      <div className={`fixed inset-0 z-[999] bg-[#111b21] transition-transform duration-300 transform ${isSettingsOpen ? 'translate-x-0' : 'translate-x-full'} flex flex-col`}>
-          {/* Header Settings */}
-          <div className="bg-[#202c33] px-4 py-4 flex items-center gap-6 shadow-md shrink-0">
-              <button onClick={() => setIsSettingsOpen(false)} className="text-gray-400 hover:text-white transition-colors">
-                  <ArrowLeft size={24} />
-              </button>
-              <h2 className="text-[#e9edef] font-bold text-lg">Pengaturan Chat & Notifikasi</h2>
-          </div>
+      <>
+          {/* Layar Gelap (Overlay) biar fokus ke panel dan bisa diklik buat tutup */}
+          <div 
+              className={`fixed inset-0 z-[998] bg-black/60 backdrop-blur-sm transition-all duration-300 ${isSettingsOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`}
+              onClick={() => setIsSettingsOpen(false)}
+          ></div>
 
-          {/* Konten Settings */}
-          <div className="flex-1 overflow-y-auto p-6 custom-scrollbar text-[#e9edef] space-y-8">
+          {/* Panel Pengaturan (Dibuat max-w-md agar ukurannya pas di Desktop & HP) */}
+          <div className={`fixed top-0 right-0 bottom-0 w-full max-w-md z-[999] bg-[#111b21] transition-transform duration-300 transform ${isSettingsOpen ? 'translate-x-0' : 'translate-x-full'} flex flex-col shadow-[-10px_0_30px_rgba(0,0,0,0.5)] border-l border-gray-800`}>
               
-              {/* Seksi Notifikasi */}
-              <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                      <div>
-                          <p className="font-medium text-[15px]">Tampilkan spanduk notifikasi</p>
-                          <p className="text-xs text-gray-500">Selalu muncul di layar</p>
-                      </div>
-                      <ToggleSwitch checked={chatSettings.notifSpanduk} onChange={() => updateSetting('notifSpanduk', !chatSettings.notifSpanduk)} />
-                  </div>
-                  <div className="flex justify-between items-center">
-                      <div>
-                          <p className="font-medium text-[15px]">Tampilkan lencana notifikasi taskbar</p>
-                          <p className="text-xs text-gray-500">Selalu muncul angka unread</p>
-                      </div>
-                      <ToggleSwitch checked={chatSettings.lencanaTaskbar} onChange={() => updateSetting('lencanaTaskbar', !chatSettings.lencanaTaskbar)} />
-                  </div>
+              {/* Header Settings */}
+              <div className="bg-[#202c33] px-4 py-4 flex items-center gap-6 shadow-md shrink-0">
+                  <button onClick={() => setIsSettingsOpen(false)} className="text-gray-400 hover:text-white transition-colors">
+                      <ArrowLeft size={24} />
+                  </button>
+                  <h2 className="text-[#e9edef] font-bold text-lg">Pengaturan Chat & Notifikasi</h2>
               </div>
 
-              <div className="h-[1px] bg-gray-800 w-full my-4"></div>
-
-              {/* Seksi Pesan */}
-              <div>
-                  <h3 className="text-[#00a884] text-sm font-bold mb-4">Pesan</h3>
-                  <div className="space-y-6">
-                      <div className="flex justify-between items-center">
-                          <div>
-                              <p className="font-medium text-[15px]">Notifikasi pesan</p>
-                              <p className="text-xs text-gray-500">Tampilkan notifikasi untuk pesan baru</p>
+              {/* Konten Settings */}
+              <div className="flex-1 overflow-y-auto p-6 custom-scrollbar text-[#e9edef] space-y-8">
+                  
+                  {/* Seksi Notifikasi */}
+                  <div className="space-y-4">
+                      <div className="flex justify-between items-center gap-4">
+                          <div className="flex-1">
+                              <p className="font-medium text-[15px] leading-tight mb-1">Tampilkan spanduk notifikasi</p>
+                              <p className="text-xs text-gray-500">Selalu muncul di layar</p>
                           </div>
-                          <ToggleSwitch checked={chatSettings.notifPesan} onChange={() => updateSetting('notifPesan', !chatSettings.notifPesan)} />
+                          <ToggleSwitch checked={chatSettings.notifSpanduk} onChange={() => updateSetting('notifSpanduk', !chatSettings.notifSpanduk)} />
                       </div>
-                      <div className="flex justify-between items-center">
-                          <div>
-                              <p className="font-medium text-[15px]">Tampilkan pratinjau</p>
-                              <p className="text-xs text-gray-500">Tampilkan isi pesan di notifikasi</p>
+                      <div className="flex justify-between items-center gap-4">
+                          <div className="flex-1">
+                              <p className="font-medium text-[15px] leading-tight mb-1">Tampilkan lencana notifikasi taskbar</p>
+                              <p className="text-xs text-gray-500">Selalu muncul angka unread</p>
                           </div>
-                          <ToggleSwitch checked={chatSettings.pratinjau} onChange={() => updateSetting('pratinjau', !chatSettings.pratinjau)} />
-                      </div>
-                      <div className="flex justify-between items-center">
-                          <div>
-                              <p className="font-medium text-[15px]">Tampilkan notifikasi reaksi</p>
-                          </div>
-                          <ToggleSwitch checked={chatSettings.notifReaksi} onChange={() => updateSetting('notifReaksi', !chatSettings.notifReaksi)} />
-                      </div>
-                      <div className="flex justify-between items-center">
-                          <div>
-                              <p className="font-medium text-[15px]">Reaksi status</p>
-                              <p className="text-xs text-gray-500">Tampilkan notifikasi ketika ada yang menyukai status</p>
-                          </div>
-                          <ToggleSwitch checked={chatSettings.reaksiStatus} onChange={() => updateSetting('reaksiStatus', !chatSettings.reaksiStatus)} />
+                          <ToggleSwitch checked={chatSettings.lencanaTaskbar} onChange={() => updateSetting('lencanaTaskbar', !chatSettings.lencanaTaskbar)} />
                       </div>
                   </div>
-              </div>
 
-              <div className="h-[1px] bg-gray-800 w-full my-4"></div>
+                  <div className="h-[1px] bg-gray-800 w-full my-4"></div>
 
-              {/* Seksi Suara */}
-              <div>
-                  <h3 className="text-[#00a884] text-sm font-bold mb-4">Nada notifikasi</h3>
-                  <div className="space-y-6">
-                      <div className="flex justify-between items-center">
-                          <div>
-                              <p className="font-medium text-[15px]">Suara pesan masuk</p>
-                              <p className="text-xs text-gray-500">Putar suara untuk pesan masuk</p>
+                  {/* Seksi Pesan */}
+                  <div>
+                      <h3 className="text-[#00a884] text-sm font-bold mb-4">Pesan</h3>
+                      <div className="space-y-6">
+                          <div className="flex justify-between items-center gap-4">
+                              <div className="flex-1">
+                                  <p className="font-medium text-[15px] leading-tight mb-1">Notifikasi pesan</p>
+                                  <p className="text-xs text-gray-500">Tampilkan notifikasi untuk pesan baru</p>
+                              </div>
+                              <ToggleSwitch checked={chatSettings.notifPesan} onChange={() => updateSetting('notifPesan', !chatSettings.notifPesan)} />
                           </div>
-                          <ToggleSwitch checked={chatSettings.suaraMasuk} onChange={() => updateSetting('suaraMasuk', !chatSettings.suaraMasuk)} />
-                      </div>
-                      <div className="flex justify-between items-center">
-                          <div>
-                              <p className="font-medium text-[15px]">Suara pesan keluar</p>
-                              <p className="text-xs text-gray-500">Putar suara untuk pesan keluar</p>
+                          <div className="flex justify-between items-center gap-4">
+                              <div className="flex-1">
+                                  <p className="font-medium text-[15px] leading-tight mb-1">Tampilkan pratinjau</p>
+                                  <p className="text-xs text-gray-500">Tampilkan isi pesan di notifikasi</p>
+                              </div>
+                              <ToggleSwitch checked={chatSettings.pratinjau} onChange={() => updateSetting('pratinjau', !chatSettings.pratinjau)} />
                           </div>
-                          <ToggleSwitch checked={chatSettings.suaraKeluar} onChange={() => updateSetting('suaraKeluar', !chatSettings.suaraKeluar)} />
+                          <div className="flex justify-between items-center gap-4">
+                              <div className="flex-1">
+                                  <p className="font-medium text-[15px] leading-tight">Tampilkan notifikasi reaksi</p>
+                              </div>
+                              <ToggleSwitch checked={chatSettings.notifReaksi} onChange={() => updateSetting('notifReaksi', !chatSettings.notifReaksi)} />
+                          </div>
+                          <div className="flex justify-between items-center gap-4">
+                              <div className="flex-1">
+                                  <p className="font-medium text-[15px] leading-tight mb-1">Reaksi status</p>
+                                  <p className="text-xs text-gray-500">Tampilkan notifikasi ketika ada yang menyukai status</p>
+                              </div>
+                              <ToggleSwitch checked={chatSettings.reaksiStatus} onChange={() => updateSetting('reaksiStatus', !chatSettings.reaksiStatus)} />
+                          </div>
                       </div>
-
-                      {/* SLIDER CUSTOM DARI USER */}
-                      <div className="pt-4">
-                          <p className="font-medium text-[15px] mb-2">Volume VN & Video</p>
-                          <label className="slider">
-                              <input 
-                                  type="range" 
-                                  className="level" 
-                                  min="0" 
-                                  max="100" 
-                                  value={chatSettings.volume} 
-                                  onChange={(e) => updateSetting('volume', e.target.value)} 
-                              />
-                              <svg className="volume" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 24 24">
-                                  <g>
-                                      <path d="M18.36 19.36a1 1 0 0 1-.705-1.71C19.167 16.148 20 14.142 20 12s-.833-4.148-2.345-5.65a1 1 0 1 1 1.41-1.419C20.958 6.812 22 9.322 22 12s-1.042 5.188-2.935 7.069a.997.997 0 0 1-.705.291z" fill="currentColor"></path>
-                                      <path d="M15.53 16.53a.999.999 0 0 1-.703-1.711C15.572 14.082 16 13.054 16 12s-.428-2.082-1.173-2.819a1 1 0 1 1 1.406-1.422A6 6 0 0 1 18 12a6 6 0 0 1-1.767 4.241.996.996 0 0 1-.703.289zM12 22a1 1 0 0 1-.707-.293L6.586 17H4c-1.103 0-2-.897-2-2V9c0-1.103.897-2 2-2h2.586l4.707-4.707A.998.998 0 0 1 13 3v18a1 1 0 0 1-1 1z" fill="currentColor"></path>
-                                  </g>
-                              </svg>
-                          </label>
-                      </div>
-
                   </div>
-              </div>
 
+                  <div className="h-[1px] bg-gray-800 w-full my-4"></div>
+
+                  {/* Seksi Suara */}
+                  <div>
+                      <h3 className="text-[#00a884] text-sm font-bold mb-4">Nada notifikasi</h3>
+                      <div className="space-y-6">
+                          <div className="flex justify-between items-center gap-4">
+                              <div className="flex-1">
+                                  <p className="font-medium text-[15px] leading-tight mb-1">Suara pesan masuk</p>
+                                  <p className="text-xs text-gray-500">Putar suara untuk pesan masuk</p>
+                              </div>
+                              <ToggleSwitch checked={chatSettings.suaraMasuk} onChange={() => updateSetting('suaraMasuk', !chatSettings.suaraMasuk)} />
+                          </div>
+                          <div className="flex justify-between items-center gap-4">
+                              <div className="flex-1">
+                                  <p className="font-medium text-[15px] leading-tight mb-1">Suara pesan keluar</p>
+                                  <p className="text-xs text-gray-500">Putar suara untuk pesan keluar</p>
+                              </div>
+                              <ToggleSwitch checked={chatSettings.suaraKeluar} onChange={() => updateSetting('suaraKeluar', !chatSettings.suaraKeluar)} />
+                          </div>
+
+                          {/* SLIDER CUSTOM DARI USER */}
+                          <div className="pt-4">
+                              <p className="font-medium text-[15px] mb-4">Volume VN & Video</p>
+                              <label className="slider">
+                                  <input 
+                                      type="range" 
+                                      className="level" 
+                                      min="0" 
+                                      max="100" 
+                                      value={chatSettings.volume} 
+                                      onChange={(e) => updateSetting('volume', e.target.value)} 
+                                  />
+                                  <svg className="volume" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 24 24">
+                                      <g>
+                                          <path d="M18.36 19.36a1 1 0 0 1-.705-1.71C19.167 16.148 20 14.142 20 12s-.833-4.148-2.345-5.65a1 1 0 1 1 1.41-1.419C20.958 6.812 22 9.322 22 12s-1.042 5.188-2.935 7.069a.997.997 0 0 1-.705.291z" fill="currentColor"></path>
+                                          <path d="M15.53 16.53a.999.999 0 0 1-.703-1.711C15.572 14.082 16 13.054 16 12s-.428-2.082-1.173-2.819a1 1 0 1 1 1.406-1.422A6 6 0 0 1 18 12a6 6 0 0 1-1.767 4.241.996.996 0 0 1-.703.289zM12 22a1 1 0 0 1-.707-.293L6.586 17H4c-1.103 0-2-.897-2-2V9c0-1.103.897-2 2-2h2.586l4.707-4.707A.998.998 0 0 1 13 3v18a1 1 0 0 1-1 1z" fill="currentColor"></path>
+                                      </g>
+                                  </svg>
+                              </label>
+                          </div>
+                      </div>
+                  </div>
+
+              </div>
           </div>
-      </div>
+      </>
   );
 
   if (!activeSession) {

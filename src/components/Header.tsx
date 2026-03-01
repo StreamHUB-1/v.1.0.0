@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 // Import 'Play' sudah dihapus dari sini agar rapi
 import { Menu, User as UserIcon, X, Settings, LogOut, ShoppingCart, LayoutGrid, Home, Ticket, Coins, Infinity, Pencil, Save, Radio, Headphones, MessageCircle, Camera } from 'lucide-react';
 import { ViewState, User } from '../types';
+import '../styles/Animations.css';
 
 interface HeaderProps {
   currentView: ViewState;

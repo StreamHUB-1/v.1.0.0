@@ -42,6 +42,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   
+  // STATE BARU UNTUK DOODSTREAM BALANCE
+  const [doodBalance, setDoodBalance] = useState<string>('0.00');
+  const [isLoadingBalance, setIsLoadingBalance] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null); 
 
@@ -80,6 +84,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
     ? ['videos', 'genres', 'users', 'store', 'talents'] 
     : ['videos', 'genres', 'users'];
 
+  // FUNGSI NARIK DOODSTREAM BALANCE
+  const fetchDoodBalance = async () => {
+      setIsLoadingBalance(true);
+      try {
+          const targetUrl = `https://doodapi.co/api/account/info?key=${DOOD_API_KEY}`;
+          const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+          
+          const res = await fetch(proxyUrl);
+          const data = await res.json();
+          
+          if (data.status === 200 && data.result) {
+              setDoodBalance(data.result.balance);
+          }
+      } catch (e) {
+          console.error("Gagal narik saldo Doodstream:", e);
+      } finally {
+          setIsLoadingBalance(false);
+      }
+  };
+
   const fetchUsers = async () => {
       setIsLoadingUsers(true);
       try {
@@ -108,6 +132,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
   useEffect(() => { 
       if (activeTab === 'users') fetchUsers(); 
       if (activeTab === 'talents' && isDeveloper) fetchTalentsData();
+      // Panggil saldo doodstream pas buka tab video
+      if (activeTab === 'videos') fetchDoodBalance();
   }, [activeTab]);
 
   useEffect(() => {
@@ -202,6 +228,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
               }));
               
               (window as any).Swal.fire({ title: 'Upload Berhasil!', text: 'Data telah diisi otomatis!', icon: 'success', background: '#1a1a1a', color: '#fff', timer: 2500 });
+              
+              // REFRESH BALANCE SETELAH UPLOAD SUKSES
+              fetchDoodBalance();
           } else {
               throw new Error("Respon tidak valid dari sisi DoodStream");
           }
@@ -439,6 +468,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
       {activeTab === 'videos' && (
         <div className="flex flex-col lg:flex-row gap-8">
           <div className="w-full lg:w-1/3 space-y-6">
+            
+            {/* WIDGET DOODSTREAM BALANCE */}
+            <div className="bg-black border border-[#00a884]/30 p-5 rounded-2xl flex items-center justify-between shadow-[0_0_15px_rgba(0,168,132,0.1)] group">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-[#00a884]/20 text-[#00a884] rounded-full flex items-center justify-center">
+                        <DollarSign size={24} />
+                    </div>
+                    <div>
+                        <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">DoodStream Balance</p>
+                        <div className="flex items-baseline gap-1">
+                           <h4 className="text-3xl font-black text-white group-hover:text-[#00a884] transition-colors">${doodBalance}</h4>
+                           <span className="text-[10px] font-bold text-gray-500 uppercase">USD</span>
+                        </div>
+                    </div>
+                </div>
+                <button onClick={fetchDoodBalance} disabled={isLoadingBalance} className="text-[#00a884] hover:text-white hover:bg-[#00a884] p-3 rounded-xl transition-all border border-[#00a884]/30 disabled:opacity-50">
+                    <Loader2 size={18} className={isLoadingBalance ? "animate-spin" : ""} />
+                </button>
+            </div>
+
             <div className="bg-gray-900 border border-gray-800 p-8 rounded-[2rem]">
               <h3 className="text-sm font-black uppercase tracking-widest text-gray-500 mb-6 flex items-center gap-2">
                   {editingOldTitle ? <Edit2 size={16}/> : <Plus size={16}/>}
@@ -446,6 +495,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
               </h3>
               <div className="space-y-4">
                  
+                 {/* KOTAK DRAG & DROP DOODSTREAM */}
                  <div 
                      className={`p-6 border-2 border-dashed rounded-xl text-center cursor-pointer transition-all ${isDragging ? 'border-[#00a884] bg-[#00a884]/10' : 'border-gray-800 hover:border-gray-600 bg-black'}`}
                      onDragOver={handleDragOver}
@@ -505,10 +555,35 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                      <textarea placeholder="Description" rows={3} className="w-full bg-black border border-gray-800 rounded-xl pl-12 pr-4 py-3 text-sm outline-none focus:border-primary text-white resize-none" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
                  </div>
                  
+                 {/* UPLOAD THUMBNAIL DENGAN KOMPRESI OTOMATIS */}
                  <div className="p-4 border-2 border-dashed border-gray-800 rounded-xl text-center cursor-pointer hover:border-gray-600 transition-colors" onClick={() => fileInputRef.current?.click()}>
                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={e => {
                         const file = e.target.files?.[0];
-                        if (file) { const reader = new FileReader(); reader.onloadend = () => setFormData({...formData, thumbnailUrl: reader.result as string}); reader.readAsDataURL(file); }
+                        if (file) { 
+                            const reader = new FileReader(); 
+                            reader.onload = (event) => {
+                                const img = new Image();
+                                img.onload = () => {
+                                    const canvas = document.createElement('canvas');
+                                    const MAX_WIDTH = 640; 
+                                    const MAX_HEIGHT = 360;
+                                    let width = img.width;
+                                    let height = img.height;
+
+                                    if (width > height) { if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; } } 
+                                    else { if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; } }
+                                    
+                                    canvas.width = width;
+                                    canvas.height = height;
+                                    const ctx = canvas.getContext('2d');
+                                    ctx?.drawImage(img, 0, 0, width, height);
+                                    
+                                    setFormData({...formData, thumbnailUrl: canvas.toDataURL('image/jpeg', 0.7)});
+                                };
+                                img.src = event.target?.result as string;
+                            }; 
+                            reader.readAsDataURL(file); 
+                        }
                     }} />
                     {formData.thumbnailUrl ? (
                         <div className="relative"><img src={formData.thumbnailUrl} className="h-32 w-full object-cover mx-auto rounded-lg" /><div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity rounded-lg"><span className="text-[10px] uppercase font-black">Change Cover</span></div></div>
@@ -763,6 +838,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
         </div>
       )}
 
+      {/* ======================================================= */}
+      {/* MENU TALENT & RIWAYAT CHAT (ADMIN) */}
+      {/* ======================================================= */}
       {activeTab === 'talents' && availableTabs.includes('talents') && (
         <div className="bg-gray-900 border border-gray-800 rounded-[2.5rem] p-10">
           
@@ -773,6 +851,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
               <button onClick={() => setSubTabTalent('balance')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${subTabTalent === 'balance' ? 'bg-primary text-white' : 'text-gray-500 hover:text-white'}`}>Balance Admin</button>
           </div>
 
+          {/* TAB BALANCE ADMIN (BARU) */}
           {subTabTalent === 'balance' && (
               <div className="bg-gradient-to-br from-green-600 to-emerald-800 rounded-3xl p-10 shadow-2xl text-center relative overflow-hidden max-w-2xl mx-auto mt-10 animate-[scaleIn_0.2s_ease-out]">
                   <div className="absolute top-0 right-0 p-4 opacity-20"><Wallet size={120}/></div>
@@ -784,9 +863,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
               </div>
           )}
 
+          {/* JIKA ADMIN SEDANG MEMBUKA CHAT TERTENTU DARI RIWAYAT */}
           {subTabTalent === 'history' && selectedHistorySession ? (
               <div className="bg-black border border-gray-800 rounded-3xl overflow-hidden flex flex-col h-[700px] animate-[fadeIn_0.2s_ease-out]">
                   
+                  {/* HEADER CHAT ADMIN */}
                   <div className="bg-gray-900 p-4 flex justify-between items-center border-b border-gray-800 shrink-0">
                       <button onClick={() => setSelectedHistorySession(null)} className="text-gray-400 hover:text-white p-2 rounded-full hover:bg-gray-800 transition-colors"><ChevronLeft size={24}/></button>
                       <div className="text-center">
@@ -796,6 +877,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                       <div className="w-10"></div>
                   </div>
 
+                  {/* AREA BACA PESAN (GOD MODE) */}
                   <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-[#0b141a]">
                       {historyMessages.length === 0 ? (
                           <div className="flex justify-center items-center h-full text-gray-500"><Loader2 className="animate-spin"/></div>
@@ -813,6 +895,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                                               ) : (
                                                   <img src={msg.media_url} className={`max-w-xs rounded-lg ${msg.is_view_once ? 'border-2 border-red-500/50' : ''}`} />
                                               )}
+                                              {/* LABEL KHUSUS ADMIN JIKA ITU VIEW ONCE */}
                                               {msg.is_view_once && <div className="text-[9px] text-red-500 font-black mt-1.5 uppercase tracking-widest flex items-center gap-1"><EyeOff size={10}/> VIEW ONCE MEDIA (ADMIN BYPASS)</div>}
                                           </div>
                                       )}
@@ -825,6 +908,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                       })}
                   </div>
 
+                  {/* AREA BUTTON BAWAH */}
                   <div className="p-6 bg-gray-900 border-t border-gray-800 shrink-0 space-y-3">
                       {!selectedHistorySession.is_paid && (
                           <button onClick={() => handleConfirmSalary(selectedHistorySession.session_id)} disabled={isSubmitting} className="w-full bg-green-600 hover:bg-green-700 text-white font-black py-4 rounded-xl flex items-center justify-center gap-2 uppercase tracking-widest transition-all shadow-lg hover:shadow-green-500/25">
@@ -839,6 +923,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                   </div>
               </div>
           ) : (
+              // TABEL DATA (PENDING / ACTIVE / HISTORY) (Jangan render table jika di tab balance)
               subTabTalent !== 'balance' && (
               <table className="w-full text-left">
                 <thead>

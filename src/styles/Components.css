@@ -1,0 +1,53 @@
+/* CARD & FANCY BUTTON STYLES */
+.card-video-bg {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 3px), radial-gradient(circle at center, #11161f 0%, #08090b 100%);
+  background-size: 7px 7px, 100% 100%;
+  background-position: 0 0, center center;
+}
+
+.fancy-button {
+  --radius: 18px; outline: none; cursor: pointer; font-size: 16px; background: transparent; border: 0; position: relative; width: 200px; height: 56px; box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.6); border-radius: var(--radius); transition: transform 0.2s ease;
+}
+.fancy-button::before, .fancy-button::after {
+  content: ""; position: absolute; top: 40%; z-index: 0; height: 40px; width: 50%; background: black; filter: blur(10px); border-radius: 10px; opacity: 0.7; pointer-events: none;
+}
+.fancy-button::before { left: -2px; transform: rotate(-15deg); }
+.fancy-button::after { right: -2px; transform: rotate(15deg); }
+.fancy-button .glow { position: absolute; inset: 0; box-shadow: 0 0 100px 2px rgba(229, 9, 20, 0.3); pointer-events: none; border-radius: var(--radius); }
+.fancy-button .wave { position: absolute; width: 100%; height: 100%; inset: 0; margin: auto; transition: all 0.3s linear; pointer-events: none; }
+.fancy-button .wave::before, .fancy-button .wave::after { content: ""; position: absolute; width: 100%; height: 100%; border: 0.5px solid rgba(226, 232, 240, 0.4); inset: 0; filter: blur(2px); border-radius: 30px; opacity: 0; }
+.fancy-button:active { transform: scale(0.95); }
+.fancy-button .btn-bg { position: absolute; inset: -4px; border-radius: calc(var(--radius) * 1.2); z-index: 1; overflow: hidden; background: black; box-shadow: inset 0 0 0 1px rgba(226, 232, 240, 0.2); }
+.fancy-button .outline { position: absolute; overflow: hidden; inset: 0; outline: none; border-radius: inherit; z-index: 2; }
+.fancy-button .outline::before { content: ""; position: absolute; inset: -100%; background: linear-gradient(to right, transparent 0%, #ffffff 50%, transparent 100%); animation: spin 3s linear infinite; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+.fancy-button .wrap-content { position: absolute; inset: 0; z-index: 3; transition: all 0.3s ease; }
+.fancy-button .content { border-radius: var(--radius); overflow: hidden; height: 100%; padding: 2px; background: linear-gradient(135deg, #e50914 0%, #7f1d1d 100%); box-shadow: inset 0 0 16px 6px #540000, inset 0 -10px 10px -8px #e2e8f0; position: relative; }
+.fancy-button:hover .content { animation: shake 0.5s linear infinite; }
+@keyframes shake { 15% { transform: translate(1px, 1px); } 30% { transform: translate(0, -1px); } 45% { transform: translate(1px, -1px); } 55% { transform: translate(-1px, 1px); } 70% { transform: translate(1px, 0); } 85% { transform: translate(-1px, -1px); } }
+.fancy-button .glyphs { display: flex; align-items: center; justify-content: center; height: 100%; gap: 8px; border-radius: calc(var(--radius) * 0.85); background: linear-gradient(135deg, #e50914 0%, #b81d24 100%); box-shadow: inset 0 0 16px 6px #7f1d1d, 0 0 10px 10px rgba(0, 0, 0, 0.1); }
+.fancy-button .text { display: flex; align-items: center; justify-content: center; }
+.fancy-button .text span { display: block; color: transparent; position: relative; font-weight: 800; font-size: 14px; }
+.fancy-button .text span::after { content: attr(data-label); position: absolute; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.5); left: 0; top: 0; }
+.fancy-button:hover .text span { animation: char-in-red 0.5s ease backwards; }
+@keyframes char-in-red { 0% { transform: translateY(30%); opacity: 0; filter: blur(5px); color: #e2e8f0; } 100% { transform: translateY(0); opacity: 1; filter: blur(0); } }
+
+/* --- 3D MOBILE BOTTOM NAVIGATION --- */
+.mobile-bottom-nav { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); z-index: 60; background: rgba(10, 10, 10, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 1.2rem; padding: 0.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
+.mobile-bottom-nav .parent { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+.mobile-bottom-nav .child { width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; transform-style: preserve-3d; transition: all 0.3s cubic-bezier(0.68, 0.85, 0.265, 1.85); border-radius: 10px; margin: 0 5px; background-color: rgba(255, 255, 255, 0.05); box-shadow: inset 1px 1px 2px rgba(255,255,255,0.1), 0 0 5px rgba(0,0,0,0.5); cursor: pointer; }
+.mobile-bottom-nav .child:hover, .mobile-bottom-nav .child.active { background-color: white; transform: perspective(180px) rotateX(60deg) translateY(2px); }
+.mobile-bottom-nav .child-1:hover, .mobile-bottom-nav .child-1.active { box-shadow: 0px 10px 10px #e50914; }
+.mobile-bottom-nav .child-2:hover, .mobile-bottom-nav .child-2.active { box-shadow: 0px 10px 10px #ec4899; }
+.mobile-bottom-nav .child-3:hover, .mobile-bottom-nav .child-3.active { box-shadow: 0px 10px 10px #f97316; }
+.mobile-bottom-nav .child-4:hover, .mobile-bottom-nav .child-4.active { box-shadow: 0px 10px 10px #eab308; }
+.mobile-bottom-nav .child-5:hover, .mobile-bottom-nav .child-5.active { box-shadow: 0px 10px 10px #3b82f6; }
+.mobile-bottom-nav .child-6:hover, .mobile-bottom-nav .child-6.active { box-shadow: 0px 10px 10px #a855f7; }
+.mobile-bottom-nav .button { width: 100%; height: 100%; border: none; background-color: transparent; display: flex; align-items: center; justify-content: center; color: rgba(255, 255, 255, 0.5); transition-duration: 0.5s; transition-timing-function: cubic-bezier(0.68, -0.85, 0.265, 1.55); }
+.mobile-bottom-nav .child:hover > .button, .mobile-bottom-nav .child.active > .button { transform: translate3d(0px, 20px, 30px) perspective(80px) rotateX(-60deg) translateY(2px) translateZ(10px); }
+.mobile-bottom-nav .child-1.active > .button, .mobile-bottom-nav .child-1:hover > .button { color: #e50914; }
+.mobile-bottom-nav .child-2.active > .button, .mobile-bottom-nav .child-2:hover > .button { color: #ec4899; }
+.mobile-bottom-nav .child-3.active > .button, .mobile-bottom-nav .child-3:hover > .button { color: #f97316; }
+.mobile-bottom-nav .child-4.active > .button, .mobile-bottom-nav .child-4:hover > .button { color: #eab308; }
+.mobile-bottom-nav .child-5.active > .button, .mobile-bottom-nav .child-5:hover > .button { color: #3b82f6; }
+.mobile-bottom-nav .child-6.active > .button, .mobile-bottom-nav .child-6:hover > .button { color: #a855f7; }

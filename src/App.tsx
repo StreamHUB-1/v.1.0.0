@@ -11,6 +11,9 @@ import { Video, ViewState, User, StoreOptions } from './types';
 import { api } from './services/api';
 import { supabase } from './services/supabase';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import './styles/Login.css';
+import './styles/Components.css';
+import './styles/Store.css';
 
 // LIBRARIES BARU
 import { Toaster, toast } from 'react-hot-toast';

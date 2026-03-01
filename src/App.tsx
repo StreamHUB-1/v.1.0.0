@@ -94,7 +94,8 @@ export default function App() {
     setIsLoadingData(true);
     try {
       const vidData = await api.getVideos();
-      setVideos(Array.isArray(vidData) ? vidData.map((item:any) => ({ id: item.id || item.judul || item.Judul || Math.random(), title: item.judul || item.Judul || 'Untitled', description: item.description || item.Description || '', thumbnailUrl: item.foto || item.Foto || '', videoUrl: item.link || item.Link || '', duration: item.duration || item.Duration || 'HD', views: Number(item.views || item.Views || 0), uploadDate: item.uploadDate || item.UploadDate || new Date().toISOString().toISOString(), category: item.genre || item.Genre || 'Uncategorized', uploader: item.uploader || 'Admin' })) : []);
+      // Typo toISOString() ganda di bawah ini sudah dibenarkan
+      setVideos(Array.isArray(vidData) ? vidData.map((item:any) => ({ id: item.id || item.judul || item.Judul || Math.random(), title: item.judul || item.Judul || 'Untitled', description: item.description || item.Description || '', thumbnailUrl: item.foto || item.Foto || '', videoUrl: item.link || item.Link || '', duration: item.duration || item.Duration || 'HD', views: Number(item.views || item.Views || 0), uploadDate: item.uploadDate || item.UploadDate || new Date().toISOString(), category: item.genre || item.Genre || 'Uncategorized', uploader: item.uploader || 'Admin' })) : []);
       
       const catData = await api.getCategories();
       if (Array.isArray(catData)) setCategories(['All', ...catData.map((item:any) => item.name || item.Name)]);
@@ -190,7 +191,6 @@ export default function App() {
 
         fetchData(user.username); 
         
-        // Menggunakan React Hot Toast
         toast.success(`Welcome back, ${user.nickname || user.username}!`);
       } else { 
         toast.error(`Login Failed: ${data.message}`);
@@ -222,7 +222,6 @@ export default function App() {
 
   const handleChatClick = (targetName: string) => {
       if (currentUser.role === 'guest') {
-          // Tetap pakai Swal untuk Konfirmasi
           (window as any).Swal?.fire({
               title: 'Akses Terbatas',
               text: 'Silakan Mendaftar / Login untuk menggunakan fitur Chat.',
@@ -310,7 +309,6 @@ export default function App() {
           return toast.error('Anda tidak bisa memulai sesi chat dengan diri Anda sendiri.');
       }
 
-      // Tetap pakai Swal untuk Konfirmasi Pembayaran
       (window as any).Swal.fire({
           title: `Chat with ${talent.name}?`,
           text: talent.tokenRate === 0 || talent.tokenRate === '0' 
@@ -369,7 +367,6 @@ export default function App() {
       toast.error('Fitur Withdraw sedang dalam perbaikan. Silakan tunggu.', { icon: '🚧' });
   };
 
-  // Tambahin [...videos].reverse() tepat sebelum .filter
   const filteredVideos = [...videos].reverse().filter(v => {
       const cat = v.category ? String(v.category) : '';
       const videoGenres = cat.split(',').map(g => g.trim());
@@ -387,7 +384,6 @@ export default function App() {
       <div className="min-h-screen bg-darker flex flex-col items-center justify-center p-6 relative overflow-hidden">
         <Toaster position="top-center" toastOptions={{ style: { background: '#1a1a1a', color: '#fff', border: '1px solid #333' } }} />
         
-        {/* Menggunakan Framer Motion */}
         <motion.div 
             initial={{ y: -30, opacity: 0 }} 
             animate={{ y: 0, opacity: 1 }} 
@@ -398,7 +394,6 @@ export default function App() {
           <p className="text-gray-500 font-bold uppercase tracking-widest text-sm">Premium Video & Chatting RPS & CS</p>
         </motion.div>
         
-        {/* Menggunakan Framer Motion */}
         <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -500,7 +495,6 @@ export default function App() {
         
         {currentView === 'home' && (
            <div className="max-w-7xl mx-auto px-4 md:px-8 py-8">
-              {/* Animasi Hero Section */}
               <motion.div 
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -575,7 +569,6 @@ export default function App() {
                               </div>
                               <h3 className="text-sm font-bold text-white leading-tight mb-2 line-clamp-2 group-hover:text-primary transition-colors">{video.title}</h3>
                               <div className="flex items-center justify-between text-gray-500 text-[10px] font-bold uppercase tracking-wide">
-                                  {/* Menggunakan dayjs untuk render waktu upload */}
                                   <span>{video.uploader} • {dayjs(video.uploadDate).format('DD MMM')}</span>
                                   <div className="flex items-center gap-1">
                                       <Star size={10} className="text-yellow-500 fill-yellow-500" />
@@ -795,104 +788,106 @@ export default function App() {
             </>
         )}
 
-        {/* HALAMAN STORE */}
-        {currentView === 'store' && (
-             <div className="max-w-7xl mx-auto px-4 md:px-8 py-12">
-                 <div className="flex flex-col items-center text-center mb-12">
-                     <h2 className="text-3xl md:text-5xl font-black uppercase mb-2 tracking-tighter">Premium <span className="text-primary">Store</span></h2>
-                     <p className="text-gray-500 text-sm font-bold uppercase tracking-widest mb-6">Upgrade your rank or buy Tokens</p>
-                     
-                     <div className="filter-switch-3">
-                        <input checked={storeFilter === 'all'} id="opt-all" name="storeOptions" type="radio" onChange={() => setStoreFilter('all')} />
-                        <label className="option" htmlFor="opt-all">All Store</label>
-                        
-                        <input checked={storeFilter === 'vip'} id="opt-vip" name="storeOptions" type="radio" onChange={() => setStoreFilter('vip')} />
-                        <label className="option" htmlFor="opt-vip">VIP Package</label>
-                        
-                        <input checked={storeFilter === 'token'} id="opt-token" name="storeOptions" type="radio" onChange={() => setStoreFilter('token')} />
-                        <label className="option" htmlFor="opt-token">Token Top-Up</label>
-                        <span className="background"></span>
-                     </div>
-                 </div>
+      {/* HALAMAN STORE */}
+      {currentView === 'store' && (
+        <div className="max-w-7xl mx-auto px-4 md:px-8 py-12">
+            <div className="flex flex-col items-center text-center mb-12">
+                <h2 className="text-3xl md:text-5xl font-black uppercase mb-2 tracking-tighter">Premium <span className="text-primary">Store</span></h2>
+                <p className="text-gray-500 text-sm font-bold uppercase tracking-widest mb-6">Upgrade your rank or buy Tokens</p>
+                
+                <div className="filter-switch-3">
+                  <input checked={storeFilter === 'all'} id="opt-all" name="storeOptions" type="radio" onChange={() => setStoreFilter('all')} />
+                  <label className="option" htmlFor="opt-all">All Store</label>
+                  
+                  <input checked={storeFilter === 'vip'} id="opt-vip" name="storeOptions" type="radio" onChange={() => setStoreFilter('vip')} />
+                  <label className="option" htmlFor="opt-vip">VIP Package</label>
+                  
+                  <input checked={storeFilter === 'token'} id="opt-token" name="storeOptions" type="radio" onChange={() => setStoreFilter('token')} />
+                  <label className="option" htmlFor="opt-token">Token Top-Up</label>
+                  <span className="background"></span>
+                </div>
+            </div>
 
-                 {(storeFilter === 'all' || storeFilter === 'vip') && (
-                 <div className="mb-16 animate-[fadeIn_0.3s_ease-out]">
-                     <div className="flex items-center gap-4 mb-8">
-                         <h3 className="text-xl font-black uppercase tracking-widest text-white border-l-4 border-primary pl-4">VIP Packages</h3>
-                     </div>
-                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                         {storeTypes.length > 0 ? storeTypes.map((item, index) => (
-                             <div key={index} className="relative bg-gray-900 border border-gray-800 rounded-[2rem] p-8 hover:-translate-y-2 transition-all duration-300 hover:border-primary group overflow-hidden flex flex-col shadow-xl">
-                                 <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-3xl -mr-16 -mt-16 transition-opacity group-hover:opacity-100 opacity-0"></div>
-                                 <div className="mb-6">
-                                     <span className="bg-primary/10 text-primary text-[10px] font-black uppercase px-3 py-1 rounded-full mb-4 inline-block tracking-widest">{item.typeCard}</span>
-                                     <h3 className="text-2xl font-black text-white uppercase mb-2">{item.name}</h3>
-                                     <div className="flex items-baseline gap-1">
-                                         <span className="text-3xl font-black text-white">Rp {formatNumber(item.price)}</span>
-                                     </div>
-                                 </div>
-                                 <div className="space-y-4 mb-8 flex-grow">
-                                     <div className="flex items-center gap-3 text-gray-400 text-sm">
-                                         <Clock size={16} className="text-primary shrink-0" />
-                                         <span>Duration: <b className="text-white">{item.duration}</b></span>
-                                     </div>
-                                     <div className="flex items-center gap-3 text-gray-400 text-sm">
-                                         <Coins size={16} className="text-primary shrink-0" />
-                                         <span>Daily Limit: <b className="text-white">{formatNumber(item.tokenAmount)} Tokens</b></span>
-                                     </div>
-                                     <div className="pt-4 border-t border-gray-800 mt-4">
-                                         <ul className="space-y-3 mt-4">
-                                             {String(item.description || '').split(',').map((descLine, i) => descLine.trim() && (
-                                                 <li key={i} className="flex items-start gap-3 text-gray-400 text-sm">
-                                                     <Check size={16} className="text-primary shrink-0 mt-0.5" />
-                                                     <span className="leading-relaxed">{descLine.trim()}</span>
-                                                 </li>
-                                             ))}
-                                         </ul>
-                                     </div>
-                                 </div>
-                                 <div className="mt-auto pt-6">
-                                    <button className="w-full py-4 bg-white text-black rounded-xl font-black uppercase text-xs tracking-widest hover:bg-primary hover:text-white transition-all shadow-lg hover:shadow-primary/25" onClick={() => window.open(`https://wa.me/6281234567890?text=I want to buy VIP Rank: ${item.name}`, '_blank')}>Purchase Rank</button>
-                                 </div>
-                             </div>
-                         )) : (
-                             <div className="col-span-full text-center py-10 text-gray-500 font-bold uppercase tracking-widest">No VIP packages available.</div>
-                         )}
-                     </div>
-                 </div>
-                 )}
+            {/* BLOK TOKEN TOP-UP (DI ATAS) */}
+            {(storeFilter === 'all' || storeFilter === 'token') && (
+            <div className="mb-16 animate-[fadeIn_0.3s_ease-out]">
+                <div className="flex items-center gap-4 mb-8">
+                    <h3 className="text-xl font-black uppercase tracking-widest text-white border-l-4 border-yellow-500 pl-4">Token Top-Up</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {storeTokens.length > 0 ? storeTokens.map((item, index) => (
+                        <div key={index} className="bg-gray-900 border border-gray-800 rounded-[1.5rem] p-6 hover:-translate-y-1 transition-all duration-300 hover:border-yellow-500 group flex flex-col shadow-lg">
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="w-12 h-12 rounded-full bg-yellow-500/10 flex items-center justify-center text-yellow-500">
+                                    <Zap size={24} />
+                                </div>
+                                <div>
+                                    <h4 className="font-black text-white uppercase text-sm tracking-wide">{item.name}</h4>
+                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Instant Token</span>
+                                </div>
+                            </div>
+                            <div className="text-2xl font-black text-white mb-4">Rp {formatNumber(item.price)}</div>
+                            <div className="flex items-center gap-2 text-yellow-500 text-sm font-bold mb-6 flex-grow">
+                                <Coins size={16} /> +{formatNumber(item.tokenAmount)} Tokens
+                            </div>
+                            <button className="w-full py-3 bg-gray-800 text-white rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-yellow-500 hover:text-black transition-all" onClick={() => window.open(`https://wa.me/6281234567890?text=I want to Top Up Token: ${item.name}`, '_blank')}>Buy Tokens</button>
+                        </div>
+                    )) : (
+                        <div className="col-span-full text-center py-10 text-gray-500 font-bold uppercase tracking-widest">No Token Top-Ups available.</div>
+                    )}
+                </div>
+            </div>
+            )}
 
-                 {(storeFilter === 'all' || storeFilter === 'token') && (
-                 <div className="animate-[fadeIn_0.3s_ease-out]">
-                     <div className="flex items-center gap-4 mb-8">
-                         <h3 className="text-xl font-black uppercase tracking-widest text-white border-l-4 border-yellow-500 pl-4">Token Top-Up</h3>
-                     </div>
-                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                         {storeTokens.length > 0 ? storeTokens.map((item, index) => (
-                             <div key={index} className="bg-gray-900 border border-gray-800 rounded-[1.5rem] p-6 hover:-translate-y-1 transition-all duration-300 hover:border-yellow-500 group flex flex-col shadow-lg">
-                                 <div className="flex items-center gap-4 mb-4">
-                                     <div className="w-12 h-12 rounded-full bg-yellow-500/10 flex items-center justify-center text-yellow-500">
-                                         <Zap size={24} />
-                                     </div>
-                                     <div>
-                                         <h4 className="font-black text-white uppercase text-sm tracking-wide">{item.name}</h4>
-                                         <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Instant Token</span>
-                                     </div>
-                                 </div>
-                                 <div className="text-2xl font-black text-white mb-4">Rp {formatNumber(item.price)}</div>
-                                 <div className="flex items-center gap-2 text-yellow-500 text-sm font-bold mb-6 flex-grow">
-                                     <Coins size={16} /> +{formatNumber(item.tokenAmount)} Tokens
-                                 </div>
-                                 <button className="w-full py-3 bg-gray-800 text-white rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-yellow-500 hover:text-black transition-all" onClick={() => window.open(`https://wa.me/6281234567890?text=I want to Top Up Token: ${item.name}`, '_blank')}>Buy Tokens</button>
-                             </div>
-                         )) : (
-                             <div className="col-span-full text-center py-10 text-gray-500 font-bold uppercase tracking-widest">No Token Top-Ups available.</div>
-                         )}
-                     </div>
-                 </div>
-                 )}
-             </div>
-        )}
+            {/* BLOK VIP PACKAGES (DI BAWAH) */}
+            {(storeFilter === 'all' || storeFilter === 'vip') && (
+            <div className="animate-[fadeIn_0.3s_ease-out]">
+                <div className="flex items-center gap-4 mb-8">
+                    <h3 className="text-xl font-black uppercase tracking-widest text-white border-l-4 border-primary pl-4">VIP Packages</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {storeTypes.length > 0 ? storeTypes.map((item, index) => (
+                        <div key={index} className="relative bg-gray-900 border border-gray-800 rounded-[2rem] p-8 hover:-translate-y-2 transition-all duration-300 hover:border-primary group overflow-hidden flex flex-col shadow-xl">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-3xl -mr-16 -mt-16 transition-opacity group-hover:opacity-100 opacity-0"></div>
+                            <div className="mb-6">
+                                <span className="bg-primary/10 text-primary text-[10px] font-black uppercase px-3 py-1 rounded-full mb-4 inline-block tracking-widest">{item.typeCard}</span>
+                                <h3 className="text-2xl font-black text-white uppercase mb-2">{item.name}</h3>
+                                <div className="flex items-baseline gap-1">
+                                    <span className="text-3xl font-black text-white">Rp {formatNumber(item.price)}</span>
+                                </div>
+                            </div>
+                            <div className="space-y-4 mb-8 flex-grow">
+                                <div className="flex items-center gap-3 text-gray-400 text-sm">
+                                    <Clock size={16} className="text-primary shrink-0" />
+                                    <span>Duration: <b className="text-white">{item.duration}</b></span>
+                                </div>
+                                <div className="flex items-center gap-3 text-gray-400 text-sm">
+                                    <Coins size={16} className="text-primary shrink-0" />
+                                    <span>Daily Limit: <b className="text-white">{formatNumber(item.tokenAmount)} Tokens</b></span>
+                                </div>
+                                <div className="pt-4 border-t border-gray-800 mt-4">
+                                    <ul className="space-y-3 mt-4">
+                                        {String(item.description || '').split(',').map((descLine, i) => descLine.trim() && (
+                                            <li key={i} className="flex items-start gap-3 text-gray-400 text-sm">
+                                                <Check size={16} className="text-primary shrink-0 mt-0.5" />
+                                                <span className="leading-relaxed">{descLine.trim()}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </div>
+                            <div className="mt-auto pt-6">
+                               <button className="w-full py-4 bg-white text-black rounded-xl font-black uppercase text-xs tracking-widest hover:bg-primary hover:text-white transition-all shadow-lg hover:shadow-primary/25" onClick={() => window.open(`https://wa.me/6281234567890?text=I want to buy VIP Rank: ${item.name}`, '_blank')}>Purchase Rank</button>
+                            </div>
+                        </div>
+                    )) : (
+                        <div className="col-span-full text-center py-10 text-gray-500 font-bold uppercase tracking-widest">No VIP packages available.</div>
+                    )}
+                </div>
+            </div>
+            )}
+        </div>
+      )}
 
         {currentView === 'genre' && (
              <div className="max-w-7xl mx-auto px-4 md:px-8 py-12">

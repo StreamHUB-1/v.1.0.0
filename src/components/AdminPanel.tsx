@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, Edit2, Save, X, Image as ImageIcon, Search, Loader2, Type, Clock, AlignLeft, Tag, Video as VideoIcon, ChevronDown, CheckSquare, Square, Lock, Coins, Ticket, User, Shield, ShoppingBag, DollarSign, CreditCard, LayoutGrid, CheckCircle, ChevronLeft, Flame, EyeOff, Wallet } from 'lucide-react';
+import { Plus, Trash2, Edit2, Save, X, Image as ImageIcon, Search, Loader2, Type, Clock, AlignLeft, Tag, Video as VideoIcon, ChevronDown, CheckSquare, Square, Lock, Coins, Ticket, User, Shield, ShoppingBag, DollarSign, CreditCard, LayoutGrid, CheckCircle, ChevronLeft, Flame, EyeOff, Wallet, UploadCloud } from 'lucide-react';
 import { Video, StoreOptions } from '../types';
 import { api } from '../services/api';
 // IMPORT SUPABASE UNTUK HAK AKSES DEWA ADMIN
@@ -18,11 +18,16 @@ interface UserManagementData { username: string; nickname: string; type: string;
 const showPopup = (title: string, text: string, icon: 'success' | 'error' | 'warning') => { (window as any).Swal.fire({ title, text, icon, background: '#1a1a1a', color: '#fff', confirmButtonColor: '#e50914', timer: icon === 'success' ? 2000 : undefined, showConfirmButton: icon !== 'success' }); };
 const formatPrice = (price: string | number) => { return new Intl.NumberFormat('id-ID').format(Number(price) || 0); };
 
+// API KEY DOODSTREAM
+const DOOD_API_KEY = '557667ehqkgznsj6giueg5';
+
 export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categories, setCategories, refreshData, storeTypes, storeTokens, storeOptions }) => {
   const [activeTab, setActiveTab] = useState('videos');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null); // REF BARU UNTUK UPLOAD DOODSTREAM
+
   const [formData, setFormData] = useState({ title: '', description: '', thumbnailUrl: '', videoUrl: '', duration: '', genre: '' });
   const [editingOldTitle, setEditingOldTitle] = useState<string | null>(null);
   const [isGenreDropdownOpen, setIsGenreDropdownOpen] = useState(false);
@@ -104,6 +109,84 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
       if (data.status === 'success') { setIsUserModalOpen(false); fetchUsers(); showPopup('Success', `User updated!`, 'success'); } 
       else { showPopup('Failed', data.message || 'Could not update user.', 'error'); }
     } catch (e: any) { showPopup('Error', e.message || 'Error occurred.', 'error'); } finally { setIsSubmitting(false); }
+  };
+
+  // =======================================================
+  // FUNGSI AUTO-UPLOAD & SYNC DOODSTREAM (BARU)
+  // =======================================================
+  const handleDoodUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      setIsSubmitting(true);
+      (window as any).Swal.fire({
+          title: 'Mengupload ke DoodStream...',
+          text: 'Mohon tunggu, sedang mengirim video...',
+          allowOutsideClick: false,
+          background: '#1a1a1a',
+          color: '#fff',
+          didOpen: () => { (window as any).Swal.showLoading(); }
+      });
+
+      try {
+          // 1. Minta Izin Server DoodStream
+          const serverRes = await fetch(`https://doodapi.co/api/upload/server?key=${DOOD_API_KEY}`);
+          const serverData = await serverRes.json();
+          if (serverData.status !== 200 || !serverData.result) throw new Error("Gagal mendapat server DoodStream");
+
+          // 2. Upload File MP4
+          const formDataUpload = new FormData();
+          formDataUpload.append('api_key', DOOD_API_KEY);
+          formDataUpload.append('file', file);
+
+          const uploadRes = await fetch(serverData.result, { method: 'POST', body: formDataUpload });
+          const uploadData = await uploadRes.json();
+
+          if (uploadData.status === 200 && uploadData.result && uploadData.result.length > 0) {
+              const result = uploadData.result[0];
+              
+              // 3. Konversi Durasi (dari detik menjadi MM:SS)
+              let formattedDuration = '00:00';
+              if (result.length && !isNaN(result.length)) {
+                  const totalSeconds = parseInt(result.length);
+                  const mins = Math.floor(totalSeconds / 60);
+                  const secs = totalSeconds % 60;
+                  formattedDuration = `${mins}:${secs.toString().padStart(2, '0')}`;
+              }
+
+              // 4. Auto-Fill Form Admin
+              setFormData(prev => ({
+                  ...prev,
+                  title: prev.title || result.title || file.name.split('.')[0],
+                  videoUrl: result.protected_embed || '',
+                  thumbnailUrl: result.single_img || prev.thumbnailUrl,
+                  duration: formattedDuration
+              }));
+              
+              (window as any).Swal.fire({
+                  title: 'Auto-Sync Berhasil!',
+                  text: 'Video terupload. Judul, Link, Thumbnail & Durasi telah diisi otomatis!',
+                  icon: 'success',
+                  background: '#1a1a1a',
+                  color: '#fff',
+                  timer: 2500
+              });
+          } else {
+              throw new Error("Upload gagal dari sisi DoodStream");
+          }
+      } catch (err: any) {
+          console.error(err);
+          (window as any).Swal.fire({
+              title: 'Error',
+              text: err.message || 'Terjadi kesalahan saat upload',
+              icon: 'error',
+              background: '#1a1a1a',
+              color: '#fff'
+          });
+      } finally {
+          setIsSubmitting(false);
+          if (videoInputRef.current) videoInputRef.current.value = '';
+      }
   };
 
   const handleSaveVideo = async () => {
@@ -327,10 +410,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                          </div>
                      )}
                  </div>
+                 
+                 {/* FITUR AUTO UPLOAD DOODSTREAM DITAMBAHKAN DISINI */}
                  <div className="relative">
                      <VideoIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
-                     <input type="text" placeholder="Video / Embed Link" className="w-full bg-black border border-gray-800 rounded-xl pl-12 pr-4 py-3 text-sm outline-none focus:border-primary text-white" value={formData.videoUrl} onChange={e => setFormData({...formData, videoUrl: e.target.value})} />
+                     <input type="text" placeholder="Video / Embed Link" className="w-full bg-black border border-gray-800 rounded-xl pl-12 pr-28 py-3 text-sm outline-none focus:border-primary text-white" value={formData.videoUrl} onChange={e => setFormData({...formData, videoUrl: e.target.value})} />
+                     
+                     <button type="button" onClick={() => videoInputRef.current?.click()} className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#00a884] hover:bg-[#008f6f] text-[9px] font-black uppercase px-3 py-1.5 rounded-lg transition-colors text-white flex items-center gap-1">
+                         <UploadCloud size={12}/> Auto
+                     </button>
+                     <input type="file" ref={videoInputRef} className="hidden" accept="video/mp4,video/x-m4v,video/*" onChange={handleDoodUpload} />
                  </div>
+
                  <div className="relative">
                      <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
                      <input type="text" placeholder="Duration (e.g. 12:05)" className="w-full bg-black border border-gray-800 rounded-xl pl-12 pr-4 py-3 text-sm outline-none focus:border-primary text-white" value={formData.duration} onChange={e => setFormData({...formData, duration: e.target.value})} />
@@ -352,7 +443,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                  </div>
                  <div className="flex gap-2">
                     {editingOldTitle && <button onClick={() => { setEditingOldTitle(null); setFormData({title:'', description:'', thumbnailUrl:'', videoUrl:'', duration:'', genre: ''}); setIsGenreDropdownOpen(false); }} className="flex-1 bg-gray-800 hover:bg-gray-700 py-4 rounded-xl font-black uppercase text-xs tracking-widest transition-colors">Cancel</button>}
-                    <button onClick={handleSaveVideo} className="flex-1 bg-primary hover:bg-red-700 py-4 rounded-xl font-black uppercase text-xs tracking-widest transition-colors flex items-center justify-center gap-2">
+                    <button onClick={handleSaveVideo} className="flex-1 bg-primary hover:bg-red-700 py-4 rounded-xl font-black uppercase text-xs tracking-widest transition-colors flex items-center justify-center gap-2" disabled={isSubmitting}>
                         {isSubmitting ? <Loader2 className="animate-spin" size={16}/> : <Save size={16}/>}
                         {isSubmitting ? 'Syncing...' : (editingOldTitle ? 'Update' : 'Publish')}
                     </button>
@@ -436,7 +527,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                         )}
                         <div className="flex gap-2">
                              {editingStoreName && <button onClick={() => { setEditingStoreName(null); setStoreFormData({name:'', price:'', description:'', duration:'', typeCard:'Standar', tokenAmount:''}); }} className="flex-1 bg-gray-800 hover:bg-gray-700 py-4 rounded-xl font-black uppercase text-xs tracking-widest transition-colors">Cancel</button>}
-                             <button onClick={handleSaveStore} className="flex-1 bg-primary hover:bg-red-700 py-4 rounded-xl font-black uppercase text-xs tracking-widest transition-colors flex items-center justify-center gap-2">
+                             <button onClick={handleSaveStore} className="flex-1 bg-primary hover:bg-red-700 py-4 rounded-xl font-black uppercase text-xs tracking-widest transition-colors flex items-center justify-center gap-2" disabled={isSubmitting}>
                                  {isSubmitting ? <Loader2 className="animate-spin" size={16}/> : <Save size={16}/>}
                                  {isSubmitting ? 'Syncing...' : (editingStoreName ? 'Update' : 'Add Item')}
                              </button>
@@ -486,7 +577,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                         </div>
                         <div className="flex gap-2">
                              {editingGenreName && <button onClick={() => { setEditingGenreName(null); setGenreInput(''); }} className="flex-1 bg-gray-800 hover:bg-gray-700 py-4 rounded-xl font-black uppercase text-xs tracking-widest transition-colors">Cancel</button>}
-                             <button onClick={handleSaveGenre} className="flex-1 bg-primary hover:bg-red-700 py-4 rounded-xl font-black uppercase text-xs tracking-widest transition-colors flex items-center justify-center gap-2">
+                             <button onClick={handleSaveGenre} className="flex-1 bg-primary hover:bg-red-700 py-4 rounded-xl font-black uppercase text-xs tracking-widest transition-colors flex items-center justify-center gap-2" disabled={isSubmitting}>
                                  {isSubmitting ? <Loader2 className="animate-spin" size={16}/> : <Save size={16}/>}
                                  {isSubmitting ? 'Syncing...' : (editingGenreName ? 'Update' : 'Add Genre')}
                              </button>
@@ -576,7 +667,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
               <div><label className="text-[10px] font-black uppercase text-gray-500 mb-1 block flex items-center gap-2"><Coins size={10}/> Token Balance</label><input type="text" className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition-colors" value={editingUser.token} onChange={e => setEditingUser({...editingUser, token: e.target.value})} /></div>
               <div className="pt-4 flex gap-3">
                   <button className="flex-1 bg-gray-800 hover:bg-gray-700 py-4 rounded-xl font-black uppercase text-xs tracking-widest text-white" onClick={() => setIsUserModalOpen(false)}>Cancel</button>
-                  <button className="flex-1 bg-primary hover:bg-red-700 py-4 rounded-xl font-black uppercase text-xs tracking-widest text-white" onClick={handleSaveUser}>{isSubmitting ? 'Syncing...' : 'Save'}</button>
+                  <button className="flex-1 bg-primary hover:bg-red-700 py-4 rounded-xl font-black uppercase text-xs tracking-widest text-white" onClick={handleSaveUser} disabled={isSubmitting}>{isSubmitting ? 'Syncing...' : 'Save'}</button>
               </div>
             </div>
           </div>

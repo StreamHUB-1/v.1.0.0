@@ -28,7 +28,7 @@ const TetrisLoader = () => (
                 <span className="tetris-block">L</span><span className="tetris-block">O</span><span className="tetris-block">A</span>
                 <span className="tetris-block">D</span><span className="tetris-block">I</span><span className="tetris-block">N</span><span className="tetris-block">G</span>
             </div>
-            <div className="tetris-loader-text">Loading Content</div>
+            <div className="tetris-loader-text">Memuat Konten</div>
         </div>
     </div>
 );
@@ -94,7 +94,6 @@ export default function App() {
     setIsLoadingData(true);
     try {
       const vidData = await api.getVideos();
-      // Typo toISOString() ganda di bawah ini sudah dibenarkan
       setVideos(Array.isArray(vidData) ? vidData.map((item:any) => ({ id: item.id || item.judul || item.Judul || Math.random(), title: item.judul || item.Judul || 'Untitled', description: item.description || item.Description || '', thumbnailUrl: item.foto || item.Foto || '', videoUrl: item.link || item.Link || '', duration: item.duration || item.Duration || 'HD', views: Number(item.views || item.Views || 0), uploadDate: item.uploadDate || item.UploadDate || new Date().toISOString(), category: item.genre || item.Genre || 'Uncategorized', uploader: item.uploader || 'Admin' })) : []);
       
       const catData = await api.getCategories();
@@ -191,15 +190,15 @@ export default function App() {
 
         fetchData(user.username); 
         
-        toast.success(`Welcome back, ${user.nickname || user.username}!`);
+        toast.success(`Selamat datang kembali, ${user.nickname || user.username}!`);
       } else { 
-        toast.error(`Login Failed: ${data.message}`);
+        toast.error(`Gagal Masuk: ${data.message}`);
       }
     } catch (error) {} finally { setAuthLoading(false); }
   };
 
   const handleLogout = () => { localStorage.clear(); setIsAuthenticated(false); setCurrentUser({ username: 'Guest', role: 'guest', tokens: 0 }); setCurrentView('home'); };
-  const handleGuestLogin = () => { setIsAuthenticated(true); setCurrentUser({ username: 'Guest', role: 'guest', tokens: 0 }); fetchData(); toast('Welcome Guest!', { icon: '👋' }); };
+  const handleGuestLogin = () => { setIsAuthenticated(true); setCurrentUser({ username: 'Guest', role: 'guest', tokens: 0 }); fetchData(); toast('Selamat datang, Tamu!', { icon: '👋' }); };
 
   const toggleCategory = (cat: string) => {
     if (cat === 'All') setSelectedCategories(['All']);
@@ -225,7 +224,7 @@ export default function App() {
           (window as any).Swal?.fire({
               title: 'Akses Terbatas',
               text: 'Silakan Mendaftar / Login untuk menggunakan fitur Chat.',
-              icon: 'warning', showCancelButton: true, confirmButtonColor: '#e50914', cancelButtonColor: '#333', confirmButtonText: 'Register Sekarang', background: '#1a1a1a', color: '#fff', customClass: { popup: 'border border-gray-800 rounded-2xl' }
+              icon: 'warning', showCancelButton: true, confirmButtonColor: '#e50914', cancelButtonColor: '#333', confirmButtonText: 'Daftar Sekarang', background: '#1a1a1a', color: '#fff', customClass: { popup: 'border border-gray-800 rounded-2xl' }
           }).then((res: any) => {
               if (res.isConfirmed) { handleLogout(); setRegisterForm({ username: 'contoh123', password: 'contoh123', nickname: '' }); setIsRegisterOpen(true); }
           });
@@ -243,7 +242,7 @@ export default function App() {
       if (!file) return;
 
       setIsUploadingAvatar(true);
-      const loadingToast = toast.loading('Uploading avatar...');
+      const loadingToast = toast.loading('Mengunggah avatar...');
       
       try {
           const fileExt = file.name.split('.').pop();
@@ -279,9 +278,9 @@ export default function App() {
 
           api.updateUser({ username: currentUser.username, foto: avatarUrl });
 
-          toast.success('Avatar Updated!', { id: loadingToast });
+          toast.success('Avatar Diperbarui!', { id: loadingToast });
       } catch (err: any) {
-          console.error("Upload error:", err);
+          console.error("Kesalahan unggah:", err);
           toast.error(err.message, { id: loadingToast });
       } finally {
           setIsUploadingAvatar(false);
@@ -294,7 +293,7 @@ export default function App() {
       try {
           const res = await api.applyTalent({ username: currentUser.username, name: currentUser.nickname, foto: currentUser.profilePic || 'https://picsum.photos/400/600', description: applyForm.desc, tokenRate: applyForm.tokenRate, gender: applyForm.gender });
           if(res.status === 'success') {
-              toast.success('Application Sent! ' + res.message);
+              toast.success('Lamaran Terkirim! ' + res.message);
               setIsApplyModalOpen(false);
           } else { 
               toast.error(res.message); 
@@ -310,10 +309,10 @@ export default function App() {
       }
 
       (window as any).Swal.fire({
-          title: `Chat with ${talent.name}?`,
+          title: `Chat dengan ${talent.name}?`,
           text: talent.tokenRate === 0 || talent.tokenRate === '0' 
-                ? 'Sesi ini GRATIS (0 Tokens). Lanjut mulai chat?' 
-                : `Ini akan memotong ${formatNumber(talent.tokenRate)} Tokens dari saldo Anda. Lanjut?`,
+                ? 'Sesi ini GRATIS (0 Token). Lanjut mulai chat?' 
+                : `Ini akan memotong ${formatNumber(talent.tokenRate)} Token dari saldo Anda. Lanjut?`,
           icon: 'question', showCancelButton: true, confirmButtonColor: '#ec4899', confirmButtonText: 'Ya, Mulai Chat', background: '#1a1a1a', color: '#fff'
       }).then(async (res: any) => {
           if (res.isConfirmed) {
@@ -344,7 +343,7 @@ export default function App() {
 
   const handleSaveTalentProfile = async () => {
       setAuthLoading(true);
-      const saveToast = toast.loading('Saving changes...');
+      const saveToast = toast.loading('Menyimpan perubahan...');
       try {
           const res = await api.updateTalent({ 
               username: currentUser.username, 
@@ -356,7 +355,7 @@ export default function App() {
               gender: talentProfile.gender 
           });
           if(res.status === 'success') { 
-             toast.success('Profile Updated', { id: saveToast }); 
+             toast.success('Profil Diperbarui', { id: saveToast }); 
           }
       } catch(e) {
           toast.error('Gagal menyimpan profil', { id: saveToast });
@@ -364,7 +363,7 @@ export default function App() {
   };
 
   const handleWithdraw = () => {
-      toast.error('Fitur Withdraw sedang dalam perbaikan. Silakan tunggu.', { icon: '🚧' });
+      toast.error('Fitur Tarik Dana sedang dalam perbaikan. Silakan tunggu.', { icon: '🚧' });
   };
 
   const filteredVideos = [...videos].reverse().filter(v => {
@@ -391,7 +390,7 @@ export default function App() {
             className="text-center mb-10 z-10"
         >
           <h1 className="text-6xl md:text-8xl font-black text-white mb-2 uppercase tracking-tighter">STREAM<span className="text-primary">HUB</span></h1>
-          <p className="text-gray-500 font-bold uppercase tracking-widest text-sm">Premium Video & Chatting RPS & CS</p>
+          <p className="text-gray-500 font-bold uppercase tracking-widest text-sm">Video Premium & Chat RPS & CS</p>
         </motion.div>
         
         <motion.div 
@@ -402,15 +401,15 @@ export default function App() {
         >
           {!isRegisterOpen ? (
             <form onSubmit={handleLoginSubmit}>
-              <div className="text-center mb-8"><h3 className="text-2xl font-black text-white uppercase tracking-tighter">LogIn</h3></div>
-              <div className="flex-column mb-4"><label>Username</label><div className="inputForm"><UserIcon size={20} className="text-gray-400" /><input type="text" value={loginForm.username} onChange={e => setLoginForm({...loginForm, username: e.target.value})} placeholder="ID Login" className="input" /></div></div>
-              <div className="flex-column mb-4"><label>Password</label><div className="inputForm"><Lock size={20} className="text-gray-400" /><input type="password" value={loginForm.password} onChange={e => setLoginForm({...loginForm, password: e.target.value})} placeholder="Password" className="input" /></div></div>
+              <div className="text-center mb-8"><h3 className="text-2xl font-black text-white uppercase tracking-tighter">Masuk</h3></div>
+              <div className="flex-column mb-4"><label>Nama Pengguna</label><div className="inputForm"><UserIcon size={20} className="text-gray-400" /><input type="text" value={loginForm.username} onChange={e => setLoginForm({...loginForm, username: e.target.value})} placeholder="ID Masuk" className="input" /></div></div>
+              <div className="flex-column mb-4"><label>Kata Sandi</label><div className="inputForm"><Lock size={20} className="text-gray-400" /><input type="password" value={loginForm.password} onChange={e => setLoginForm({...loginForm, password: e.target.value})} placeholder="Kata Sandi" className="input" /></div></div>
               <div className="flex-row">
-                <div className="flex items-center gap-2"><input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} /><label>Remember me</label></div>
-                <span className="span-link">Forgot password?</span>
+                <div className="flex items-center gap-2"><input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} /><label>Ingat saya</label></div>
+                <span className="span-link">Lupa kata sandi?</span>
               </div>
-              <button className="button-submit" disabled={authLoading}>{authLoading ? 'Signing In...' : 'Sign In'}</button>
-              <div className="p-footer">Don't have an account? <span className="span-link" onClick={() => setIsRegisterOpen(true)}>Sign Up</span></div>
+              <button className="button-submit" disabled={authLoading}>{authLoading ? 'Sedang Masuk...' : 'Masuk'}</button>
+              <div className="p-footer">Belum punya akun? <span className="span-link" onClick={() => setIsRegisterOpen(true)}>Daftar</span></div>
               <button type="button" className="guest-btn" onClick={handleGuestLogin}>Masuk Dengan Akun Tamu Gratis</button>
             </form>
           ) : (
@@ -421,7 +420,7 @@ export default function App() {
               try {
                 const res = await api.register(registerForm.username, registerForm.password, registerForm.nickname);
                 if(res.status === 'success') {
-                  toast.success('Account created! Please login.');
+                  toast.success('Akun berhasil dibuat! Silakan masuk.');
                   setIsRegisterOpen(false);
                 } else {
                   toast.error(res.message);
@@ -429,11 +428,11 @@ export default function App() {
               } catch(e) { console.error(e); } finally { setAuthLoading(false); }
             }}>
               <div className="text-center mb-8"><h3 className="text-2xl font-black text-white uppercase tracking-tighter">Daftar</h3></div>
-              <div className="flex-column mb-4"><label>Nickname</label><div className="inputForm"><UserIcon size={20} className="text-gray-400" /><input type="text" value={registerForm.nickname} onChange={e => setRegisterForm({...registerForm, nickname: e.target.value})} placeholder="Nama yang digunakan" className="input" /></div></div>
-              <div className="flex-column mb-4"><label>Username</label><div className="inputForm"><UserIcon size={20} className="text-gray-400" /><input type="text" value={registerForm.username} onChange={e => setRegisterForm({...registerForm, username: e.target.value})} placeholder="ID (contoh123)" className="input" /></div></div>
-              <div className="flex-column mb-4"><label>Password</label><div className="inputForm"><Lock size={20} className="text-gray-400" /><input type="password" value={registerForm.password} onChange={e => setRegisterForm({...registerForm, password: e.target.value})} placeholder="Password (contoh123)" className="input" /></div></div>
-              <button className="button-submit" disabled={authLoading}>{authLoading ? 'Creating Account...' : 'Sign Up'}</button>
-              <div className="p-footer">Already have an account? <span className="span-link" onClick={() => setIsRegisterOpen(false)}>Sign In</span></div>
+              <div className="flex-column mb-4"><label>Nama Panggilan</label><div className="inputForm"><UserIcon size={20} className="text-gray-400" /><input type="text" value={registerForm.nickname} onChange={e => setRegisterForm({...registerForm, nickname: e.target.value})} placeholder="Nama yang digunakan" className="input" /></div></div>
+              <div className="flex-column mb-4"><label>Nama Pengguna</label><div className="inputForm"><UserIcon size={20} className="text-gray-400" /><input type="text" value={registerForm.username} onChange={e => setRegisterForm({...registerForm, username: e.target.value})} placeholder="ID (contoh123)" className="input" /></div></div>
+              <div className="flex-column mb-4"><label>Kata Sandi</label><div className="inputForm"><Lock size={20} className="text-gray-400" /><input type="password" value={registerForm.password} onChange={e => setRegisterForm({...registerForm, password: e.target.value})} placeholder="Kata Sandi (contoh123)" className="input" /></div></div>
+              <button className="button-submit" disabled={authLoading}>{authLoading ? 'Membuat Akun...' : 'Daftar'}</button>
+              <div className="p-footer">Sudah punya akun? <span className="span-link" onClick={() => setIsRegisterOpen(false)}>Masuk</span></div>
             </form>
           )}
         </motion.div>
@@ -484,7 +483,7 @@ export default function App() {
               if (finalPicUrl && finalPicUrl.startsWith('http')) {
                   await supabase.from('user_profiles').upsert({ username: currentUser.username, avatar_url: finalPicUrl });
               }
-              toast.success('Profil berhasil diupdate!');
+              toast.success('Profil berhasil diperbarui!');
             }} 
           />
       )}
@@ -512,7 +511,7 @@ export default function App() {
 
               <div className="sticky top-24 z-30 mb-8 flex flex-col items-center">
                   <div className="w-full max-w-2xl px-4 md:px-0">
-                      <SearchInput value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search videos..." onFilterClick={() => setIsFilterOpen(!isFilterOpen)} />
+                      <SearchInput value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Cari video..." onFilterClick={() => setIsFilterOpen(!isFilterOpen)} />
                   </div>
                   <AnimatePresence>
                   {isFilterOpen && (
@@ -523,7 +522,7 @@ export default function App() {
                           className="w-full max-w-2xl mt-4 bg-black/90 backdrop-blur-xl border border-gray-800 rounded-2xl p-6 shadow-2xl overflow-hidden"
                       >
                           <div className="flex justify-between items-center mb-4">
-                              <h4 className="text-sm font-black uppercase tracking-widest text-gray-500">Filter by Genre</h4>
+                              <h4 className="text-sm font-black uppercase tracking-widest text-gray-500">Filter berdasarkan Genre</h4>
                               <button onClick={() => setIsFilterOpen(false)} className="text-gray-500 hover:text-white"><X size={16}/></button>
                           </div>
                           <div className="flex flex-wrap gap-2">
@@ -533,7 +532,7 @@ export default function App() {
                           </div>
                           {selectedCategories.length > 0 && !selectedCategories.includes('All') && (
                               <div className="mt-4 pt-4 border-t border-gray-800 flex justify-end">
-                                  <button onClick={() => { setSelectedCategories(['All']); }} className="text-[10px] text-red-500 font-bold uppercase hover:underline">Reset Filters</button>
+                                  <button onClick={() => { setSelectedCategories(['All']); }} className="text-[10px] text-red-500 font-bold uppercase hover:underline">Hapus Filter</button>
                               </div>
                           )}
                       </motion.div>
@@ -616,11 +615,11 @@ export default function App() {
                                 <>
                                     <div className="flex justify-between items-center mb-8">
                                         <div>
-                                            <h2 className="text-3xl md:text-5xl font-black uppercase tracking-tighter">Creator <span className="text-pink-500">Talents</span></h2>
-                                            <p className="text-gray-500 text-sm font-bold uppercase tracking-widest">Nikmati Pengalaman Chat RPS or CS bersama talent</p>
+                                            <h2 className="text-3xl md:text-5xl font-black uppercase tracking-tighter">Kreator <span className="text-pink-500">Talent</span></h2>
+                                            <p className="text-gray-500 text-sm font-bold uppercase tracking-widest">Nikmati Pengalaman Chat RPS atau CS bersama talent</p>
                                         </div>
                                         {currentUser.profesi !== 'Talent' && currentUser.role !== 'guest' && (
-                                            <button onClick={() => setIsApplyModalOpen(true)} className="bg-white text-black px-6 py-3 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-pink-500 hover:text-white transition-all shadow-lg">Daftar Talent</button>
+                                            <button onClick={() => setIsApplyModalOpen(true)} className="bg-white text-black px-6 py-3 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-pink-500 hover:text-white transition-all shadow-lg">Daftar Menjadi Talent</button>
                                         )}
                                     </div>
                                     
@@ -634,13 +633,13 @@ export default function App() {
                                                         {t.gender === 'Pria' ? <span className="text-blue-400 ml-1 text-lg">♂</span> : <span className="text-pink-400 ml-1 text-lg">♀</span>}
                                                     </div>
                                                     <div className="icons">
-                                                        <p>{t.description || 'Premium Creator on StreamHub.'}</p>
+                                                        <p>{t.description || 'Kreator Premium di StreamHub.'}</p>
                                                         <div className="token-rate">
                                                             <Coins size={14}/> 
                                                             {t.tokenRate === 0 || t.tokenRate === '0' ? (
                                                                 <span className="text-green-500">GRATIS</span>
                                                             ) : (
-                                                                `${formatNumber(t.tokenRate)} Tokens`
+                                                                `${formatNumber(t.tokenRate)} Token`
                                                             )}
                                                         </div>
                                                         <button onClick={(e) => { e.stopPropagation(); handleStartChatWithTalent(t); }} className="chat-btn">Mulai Chat</button>
@@ -668,7 +667,7 @@ export default function App() {
                                                         ) : (
                                                             <>
                                                                 <Camera size={20} className="text-white mb-1" />
-                                                                <span className="text-[8px] font-black uppercase text-white">Change</span>
+                                                                <span className="text-[8px] font-black uppercase text-white">Ubah</span>
                                                             </>
                                                         )}
                                                     </div>
@@ -677,16 +676,16 @@ export default function App() {
 
                                                 <div className="flex-1 w-full space-y-3">
                                                     <div>
-                                                        <label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">Display Name</label>
+                                                        <label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">Nama Tampilan</label>
                                                         <input type="text" value={talentProfile.name} onChange={e => setTalentProfile({...talentProfile, name: e.target.value})} className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-pink-500 transition-colors"/>
                                                     </div>
                                                     <div className="flex gap-4">
                                                         <div className="flex-1">
-                                                            <label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">Username / Link ID (Locked)</label>
+                                                            <label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">Nama Pengguna / ID Tautan (Terkunci)</label>
                                                             <input type="text" value={talentProfile.username} disabled className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-sm text-gray-600 cursor-not-allowed"/>
                                                         </div>
                                                         <div className="w-1/3 shrink-0">
-                                                            <label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">Gender</label>
+                                                            <label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">Jenis Kelamin</label>
                                                             <select value={talentProfile.gender} onChange={e => setTalentProfile({...talentProfile, gender: e.target.value})} className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-pink-500 cursor-pointer">
                                                                 <option value="Pria">Pria ♂</option>
                                                                 <option value="Wanita">Wanita ♀</option>
@@ -697,33 +696,33 @@ export default function App() {
                                             </div>
 
                                             <div>
-                                                <label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">Description</label>
+                                                <label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">Deskripsi</label>
                                                 <textarea rows={3} value={talentProfile.description} onChange={e => setTalentProfile({...talentProfile, description: e.target.value})} className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-pink-500 resize-none"/>
                                             </div>
                                             <div className="flex gap-4">
                                                 <div className="flex-1">
-                                                    <label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">Token Rate (Per Chat) <span className="text-gray-600 italic">- Isi 0 jika Gratis</span></label>
+                                                    <label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">Tarif Token (Per Chat) <span className="text-gray-600 italic">- Isi 0 jika Gratis</span></label>
                                                     <input type="number" value={talentProfile.tokenRate} onChange={e => setTalentProfile({...talentProfile, tokenRate: e.target.value})} className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-pink-500"/>
                                                 </div>
                                                 <div className="flex-1">
-                                                    <label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">Status Visibility</label>
+                                                    <label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">Visibilitas Status</label>
                                                     <select value={talentProfile.status} onChange={e => setTalentProfile({...talentProfile, status: e.target.value})} className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-pink-500">
-                                                        <option value="On">Online (Visible)</option>
-                                                        <option value="Off">Offline (Hidden)</option>
+                                                        <option value="On">Online (Terlihat)</option>
+                                                        <option value="Off">Offline (Tersembunyi)</option>
                                                     </select>
                                                 </div>
                                             </div>
-                                            <button onClick={handleSaveTalentProfile} disabled={authLoading || isUploadingAvatar} className="w-full mt-4 bg-pink-600 hover:bg-pink-500 py-4 rounded-xl font-black uppercase text-xs tracking-widest transition-all">Save Changes</button>
+                                            <button onClick={handleSaveTalentProfile} disabled={authLoading || isUploadingAvatar} className="w-full mt-4 bg-pink-600 hover:bg-pink-500 py-4 rounded-xl font-black uppercase text-xs tracking-widest transition-all">Simpan Perubahan</button>
                                         </div>
                                     </div>
 
                                     <div className="bg-gradient-to-br from-yellow-600 to-orange-600 rounded-3xl p-8 shadow-2xl text-center relative overflow-hidden">
                                         <div className="absolute top-0 right-0 p-4 opacity-20"><Wallet size={100}/></div>
-                                        <h3 className="text-sm font-black uppercase text-yellow-200 tracking-widest mb-2 relative z-10">Total Earnings</h3>
+                                        <h3 className="text-sm font-black uppercase text-yellow-200 tracking-widest mb-2 relative z-10">Total Pendapatan</h3>
                                         <div className="text-6xl font-black text-white mb-8 drop-shadow-lg relative z-10">
-                                            {formatNumber(talentProfile.balance)} <span className="text-xl">Tokens</span>
+                                            {formatNumber(talentProfile.balance)} <span className="text-xl">Token</span>
                                         </div>
-                                        <button onClick={handleWithdraw} className="bg-black text-yellow-500 hover:bg-gray-900 py-4 px-12 rounded-full font-black uppercase text-sm tracking-widest transition-all relative z-10 shadow-xl">Withdraw Funds</button>
+                                        <button onClick={handleWithdraw} className="bg-black text-yellow-500 hover:bg-gray-900 py-4 px-12 rounded-full font-black uppercase text-sm tracking-widest transition-all relative z-10 shadow-xl">Tarik Dana</button>
                                     </div>
                                 </div>
                             )}
@@ -742,24 +741,24 @@ export default function App() {
                                     initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
                                     className="relative bg-gray-900 border border-gray-800 p-8 rounded-3xl w-full max-w-md shadow-2xl"
                                 >
-                                    <h3 className="text-xl font-black uppercase mb-2 text-pink-500">Become a Talent</h3>
-                                    <p className="text-[10px] text-gray-400 mb-6 uppercase tracking-widest">Monetize your time & connect with fans.</p>
+                                    <h3 className="text-xl font-black uppercase mb-2 text-pink-500">Daftar Menjadi Talent</h3>
+                                    <p className="text-[10px] text-gray-400 mb-6 uppercase tracking-widest">Hasilkan uang dari waktumu & terhubung dengan penggemar.</p>
                                     
                                     <form onSubmit={submitTalentApp} className="space-y-4">
                                         <div className="flex items-center gap-4 mb-4">
                                             <img src={currentUser.profilePic || 'https://picsum.photos/100'} className="w-16 h-16 rounded-full object-cover border border-gray-700" />
                                             <div className="flex-1">
-                                                <label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">Username / ID (Fixed)</label>
+                                                <label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">Nama Pengguna / ID (Tetap)</label>
                                                 <input type="text" value={currentUser.username} disabled className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-xs text-gray-500 cursor-not-allowed" />
                                             </div>
                                         </div>
                                         <div className="flex gap-4">
                                             <div className="flex-1">
-                                                <label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">Display Name (Auto)</label>
+                                                <label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">Nama Tampilan (Otomatis)</label>
                                                 <input type="text" value={currentUser.nickname} disabled className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-xs text-gray-500 cursor-not-allowed" />
                                             </div>
                                             <div className="w-1/3 shrink-0">
-                                                <label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">Gender</label>
+                                                <label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">Jenis Kelamin</label>
                                                 <select required value={applyForm.gender} onChange={e => setApplyForm({...applyForm, gender: e.target.value})} className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-xs text-white focus:border-pink-500 outline-none cursor-pointer">
                                                     <option value="Pria">Pria ♂</option>
                                                     <option value="Wanita">Wanita ♀</option>
@@ -767,16 +766,16 @@ export default function App() {
                                             </div>
                                         </div>
                                         <div>
-                                            <label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">About You / Description</label>
-                                            <textarea required rows={3} value={applyForm.desc} onChange={e => setApplyForm({...applyForm, desc: e.target.value})} placeholder="Tell users why they should chat with you..." className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-xs text-white focus:border-pink-500 outline-none resize-none" />
+                                            <label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">Tentang Kamu / Deskripsi</label>
+                                            <textarea required rows={3} value={applyForm.desc} onChange={e => setApplyForm({...applyForm, desc: e.target.value})} placeholder="Beri tahu pengguna mengapa mereka harus chat denganmu..." className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-xs text-white focus:border-pink-500 outline-none resize-none" />
                                         </div>
                                         <div>
-                                            <label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">Token Rate (Price per Chat)</label>
+                                            <label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">Tarif Token (Harga per Chat)</label>
                                             <input required type="number" min={1} value={applyForm.tokenRate} onChange={e => setApplyForm({...applyForm, tokenRate: Number(e.target.value)})} className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-xs text-white focus:border-pink-500 outline-none" />
                                         </div>
                                         <div className="pt-4 flex gap-2">
-                                            <button type="button" onClick={() => setIsApplyModalOpen(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 py-3 rounded-xl font-black uppercase text-xs tracking-widest text-white transition-all">Cancel</button>
-                                            <button type="submit" disabled={authLoading} className="flex-1 bg-pink-600 hover:bg-pink-500 py-3 rounded-xl font-black uppercase text-xs tracking-widest text-white transition-all shadow-lg hover:shadow-pink-500/30">Submit Apply</button>
+                                            <button type="button" onClick={() => setIsApplyModalOpen(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 py-3 rounded-xl font-black uppercase text-xs tracking-widest text-white transition-all">Batal</button>
+                                            <button type="submit" disabled={authLoading} className="flex-1 bg-pink-600 hover:bg-pink-500 py-3 rounded-xl font-black uppercase text-xs tracking-widest text-white transition-all shadow-lg hover:shadow-pink-500/30">Kirim Lamaran</button>
                                         </div>
                                     </form>
                                 </motion.div>
@@ -792,18 +791,18 @@ export default function App() {
       {currentView === 'store' && (
         <div className="max-w-7xl mx-auto px-4 md:px-8 py-12">
             <div className="flex flex-col items-center text-center mb-12">
-                <h2 className="text-3xl md:text-5xl font-black uppercase mb-2 tracking-tighter">Premium <span className="text-primary">Store</span></h2>
-                <p className="text-gray-500 text-sm font-bold uppercase tracking-widest mb-6">Upgrade your rank or buy Tokens</p>
+                <h2 className="text-3xl md:text-5xl font-black uppercase mb-2 tracking-tighter">Toko <span className="text-primary">Premium</span></h2>
+                <p className="text-gray-500 text-sm font-bold uppercase tracking-widest mb-6">Tingkatkan rank kamu atau beli Token</p>
                 
                 <div className="filter-switch-3">
                   <input checked={storeFilter === 'all'} id="opt-all" name="storeOptions" type="radio" onChange={() => setStoreFilter('all')} />
-                  <label className="option" htmlFor="opt-all">All Store</label>
+                  <label className="option" htmlFor="opt-all">Semua Toko</label>
                   
                   <input checked={storeFilter === 'vip'} id="opt-vip" name="storeOptions" type="radio" onChange={() => setStoreFilter('vip')} />
-                  <label className="option" htmlFor="opt-vip">VIP Package</label>
+                  <label className="option" htmlFor="opt-vip">Paket VIP</label>
                   
                   <input checked={storeFilter === 'token'} id="opt-token" name="storeOptions" type="radio" onChange={() => setStoreFilter('token')} />
-                  <label className="option" htmlFor="opt-token">Token Top-Up</label>
+                  <label className="option" htmlFor="opt-token">Top-Up Token</label>
                   <span className="background"></span>
                 </div>
             </div>
@@ -812,7 +811,7 @@ export default function App() {
             {(storeFilter === 'all' || storeFilter === 'token') && (
             <div className="mb-16 animate-[fadeIn_0.3s_ease-out]">
                 <div className="flex items-center gap-4 mb-8">
-                    <h3 className="text-xl font-black uppercase tracking-widest text-white border-l-4 border-yellow-500 pl-4">Token Top-Up</h3>
+                    <h3 className="text-xl font-black uppercase tracking-widest text-white border-l-4 border-yellow-500 pl-4">Top-Up Token</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {storeTokens.length > 0 ? storeTokens.map((item, index) => (
@@ -823,17 +822,17 @@ export default function App() {
                                 </div>
                                 <div>
                                     <h4 className="font-black text-white uppercase text-sm tracking-wide">{item.name}</h4>
-                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Instant Token</span>
+                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Token Instan</span>
                                 </div>
                             </div>
                             <div className="text-2xl font-black text-white mb-4">Rp {formatNumber(item.price)}</div>
                             <div className="flex items-center gap-2 text-yellow-500 text-sm font-bold mb-6 flex-grow">
-                                <Coins size={16} /> +{formatNumber(item.tokenAmount)} Tokens
+                                <Coins size={16} /> +{formatNumber(item.tokenAmount)} Token
                             </div>
-                            <button className="w-full py-3 bg-gray-800 text-white rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-yellow-500 hover:text-black transition-all" onClick={() => window.open(`https://wa.me/6281234567890?text=I want to Top Up Token: ${item.name}`, '_blank')}>Buy Tokens</button>
+                            <button className="w-full py-3 bg-gray-800 text-white rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-yellow-500 hover:text-black transition-all" onClick={() => window.open(`https://wa.me/6281234567890?text=Saya ingin Top Up Token: ${item.name}`, '_blank')}>Beli Token</button>
                         </div>
                     )) : (
-                        <div className="col-span-full text-center py-10 text-gray-500 font-bold uppercase tracking-widest">No Token Top-Ups available.</div>
+                        <div className="col-span-full text-center py-10 text-gray-500 font-bold uppercase tracking-widest">Tidak ada Top-Up Token yang tersedia.</div>
                     )}
                 </div>
             </div>
@@ -843,7 +842,7 @@ export default function App() {
             {(storeFilter === 'all' || storeFilter === 'vip') && (
             <div className="animate-[fadeIn_0.3s_ease-out]">
                 <div className="flex items-center gap-4 mb-8">
-                    <h3 className="text-xl font-black uppercase tracking-widest text-white border-l-4 border-primary pl-4">VIP Packages</h3>
+                    <h3 className="text-xl font-black uppercase tracking-widest text-white border-l-4 border-primary pl-4">Paket VIP</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {storeTypes.length > 0 ? storeTypes.map((item, index) => (
@@ -859,11 +858,11 @@ export default function App() {
                             <div className="space-y-4 mb-8 flex-grow">
                                 <div className="flex items-center gap-3 text-gray-400 text-sm">
                                     <Clock size={16} className="text-primary shrink-0" />
-                                    <span>Duration: <b className="text-white">{item.duration}</b></span>
+                                    <span>Durasi: <b className="text-white">{item.duration}</b></span>
                                 </div>
                                 <div className="flex items-center gap-3 text-gray-400 text-sm">
                                     <Coins size={16} className="text-primary shrink-0" />
-                                    <span>Daily Limit: <b className="text-white">{formatNumber(item.tokenAmount)} Tokens</b></span>
+                                    <span>Batas Harian: <b className="text-white">{formatNumber(item.tokenAmount)} Token</b></span>
                                 </div>
                                 <div className="pt-4 border-t border-gray-800 mt-4">
                                     <ul className="space-y-3 mt-4">
@@ -877,11 +876,11 @@ export default function App() {
                                 </div>
                             </div>
                             <div className="mt-auto pt-6">
-                               <button className="w-full py-4 bg-white text-black rounded-xl font-black uppercase text-xs tracking-widest hover:bg-primary hover:text-white transition-all shadow-lg hover:shadow-primary/25" onClick={() => window.open(`https://wa.me/6281234567890?text=I want to buy VIP Rank: ${item.name}`, '_blank')}>Purchase Rank</button>
+                               <button className="w-full py-4 bg-white text-black rounded-xl font-black uppercase text-xs tracking-widest hover:bg-primary hover:text-white transition-all shadow-lg hover:shadow-primary/25" onClick={() => window.open(`https://wa.me/6281234567890?text=Saya ingin beli Rank VIP: ${item.name}`, '_blank')}>Beli Rank</button>
                             </div>
                         </div>
                     )) : (
-                        <div className="col-span-full text-center py-10 text-gray-500 font-bold uppercase tracking-widest">No VIP packages available.</div>
+                        <div className="col-span-full text-center py-10 text-gray-500 font-bold uppercase tracking-widest">Tidak ada paket VIP yang tersedia.</div>
                     )}
                 </div>
             </div>
@@ -891,7 +890,7 @@ export default function App() {
 
         {currentView === 'genre' && (
              <div className="max-w-7xl mx-auto px-4 md:px-8 py-12">
-                 <h2 className="text-3xl font-black uppercase mb-12 tracking-tighter text-center">Browse by <span className="text-primary">Genre</span></h2>
+                 <h2 className="text-3xl font-black uppercase mb-12 tracking-tighter text-center">Telusuri berdasarkan <span className="text-primary">Genre</span></h2>
                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                      {categories.filter(c => c !== 'All').map((cat, i) => (
                          <div key={i} onClick={() => { setSelectedCategories([cat]); setCurrentView('home'); }} className="aspect-square bg-gray-900 border border-gray-800 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:bg-primary hover:border-primary group transition-all">
@@ -970,7 +969,7 @@ export default function App() {
         isOpen={!!selectedVideo} 
         onClose={() => setSelectedVideo(null)} 
         onWatch={handleVideoWatch}
-        onReportError={(video) => toast.success(`Issue reported for ${video.title}`)}
+        onReportError={(video) => toast.success(`Masalah dilaporkan untuk ${video.title}`)}
       />
     </div>
   );

@@ -927,11 +927,13 @@ export default function App() {
                             </div>
                         );
                     }) : (
-                        <div className="col-span-full text-center py-10 text-gray-500 font-bold uppercase tracking-widest">Tidak ada paket VIP yang tersedia.</div>
-                    )}
-                </div>
+                    <div className="col-span-full text-center py-10 text-gray-500 font-bold uppercase tracking-widest">Tidak ada paket VIP yang tersedia.</div>
+                )}
             </div>
-            )}
+        </div>
+        )}
+    </div>
+  )} 
 
         {currentView === 'genre' && (
              <div className="max-w-7xl mx-auto px-4 md:px-8 py-12">

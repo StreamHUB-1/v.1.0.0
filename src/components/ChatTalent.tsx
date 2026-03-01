@@ -5,6 +5,7 @@ import { User } from '../types';
 import dayjs from 'dayjs';
 import { api } from '../services/api';
 import { useTalentChat, useSidebarData } from '../hooks/useTalentChat'; 
+import '../styles/ChatTalent.css';
 
 interface ChatTalentProps {
   currentUser: User;

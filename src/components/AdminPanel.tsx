@@ -88,22 +88,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
   const fetchDoodBalance = async () => {
       setIsLoadingBalance(true);
       try {
+          // Kita pake AllOrigins tapi versi raw supaya ga kena block CORS browser
           const targetUrl = `https://doodapi.com/api/account/info?key=${DOOD_API_KEY}`;
-          // Coba AllOrigins dulu
-          let res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`);
-          let data = await res.json();
-          let resultData = JSON.parse(data.contents);
+          const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
           
-          if (resultData.status === 200 && resultData.result) {
-              setDoodBalance(resultData.result.balance);
+          const res = await fetch(proxyUrl);
+          const data = await res.json();
+          
+          if (data.status === 200 && data.result) {
+              // Menampilkan saldo sesuai yang ada di dashboard lu
+              setDoodBalance(data.result.balance); 
           }
       } catch (e) {
+          console.error("Gagal sinkron saldo:", e);
+          // Jalur cadangan terakhir pake corsproxy.io
           try {
-              // Jalur cadangan pakai corsproxy
-              const res2 = await fetch(`https://corsproxy.io/?${encodeURIComponent(`https://doodapi.com/api/account/info?key=${DOOD_API_KEY}`)}`);
-              const data2 = await res2.json();
-              if (data2.status === 200) setDoodBalance(data2.result.balance);
-          } catch(err) { console.error("Semua proxy gagal menarik saldo."); }
+            const res2 = await fetch(`https://corsproxy.io/?https://doodapi.com/api/account/info?key=${DOOD_API_KEY}`);
+            const data2 = await res2.json();
+            if (data2.status === 200) setDoodBalance(data2.result.balance);
+          } catch(err) {
+            console.log("Semua jalur proxy gagal.");
+          }
       } finally {
           setIsLoadingBalance(false);
       }

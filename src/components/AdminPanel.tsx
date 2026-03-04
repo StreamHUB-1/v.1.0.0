@@ -42,7 +42,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   
-  // STATE BARU UNTUK DOODSTREAM BALANCE
+  // STATE UNTUK DOODSTREAM BALANCE
   const [doodBalance, setDoodBalance] = useState<string>('0.00');
   const [isLoadingBalance, setIsLoadingBalance] = useState(false);
   
@@ -84,21 +84,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
     ? ['videos', 'genres', 'users', 'store', 'talents'] 
     : ['videos', 'genres', 'users'];
 
-  // FUNGSI NARIK DOODSTREAM BALANCE
+  // FUNGSI NARIK DOODSTREAM BALANCE (HYBRID PROXY)
   const fetchDoodBalance = async () => {
       setIsLoadingBalance(true);
       try {
           const targetUrl = `https://doodapi.com/api/account/info?key=${DOOD_API_KEY}`;
-          const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+          // Coba AllOrigins dulu
+          let res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`);
+          let data = await res.json();
+          let resultData = JSON.parse(data.contents);
           
-          const res = await fetch(proxyUrl);
-          const data = await res.json();
-          
-          if (data.status === 200 && data.result) {
-              setDoodBalance(data.result.balance);
+          if (resultData.status === 200 && resultData.result) {
+              setDoodBalance(resultData.result.balance);
           }
       } catch (e) {
-          console.error("Gagal narik saldo Doodstream:", e);
+          try {
+              // Jalur cadangan pakai corsproxy
+              const res2 = await fetch(`https://corsproxy.io/?${encodeURIComponent(`https://doodapi.com/api/account/info?key=${DOOD_API_KEY}`)}`);
+              const data2 = await res2.json();
+              if (data2.status === 200) setDoodBalance(data2.result.balance);
+          } catch(err) { console.error("Semua proxy gagal menarik saldo."); }
       } finally {
           setIsLoadingBalance(false);
       }
@@ -132,7 +137,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
   useEffect(() => { 
       if (activeTab === 'users') fetchUsers(); 
       if (activeTab === 'talents' && isDeveloper) fetchTalentsData();
-      // Panggil saldo doodstream pas buka tab video
       if (activeTab === 'videos') fetchDoodBalance();
   }, [activeTab]);
 
@@ -158,7 +162,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
   };
 
   // ============================================================
-  // PROSES UPLOAD DOODSTREAM (JALUR ANTI-BLOCK)
+  // PROSES UPLOAD DOODSTREAM (HYBRID ANTI-ERROR)
   // ============================================================
   const processDoodUpload = async (file: File) => {
       if (!file) return;
@@ -166,7 +170,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
       
       (window as any).Swal.fire({
           title: 'Menghubungkan ke DoodStream...',
-          text: 'Harap tunggu beberapa detik...',
+          text: 'Mencari jalur koneksi terbaik...',
           allowOutsideClick: false,
           background: '#1a1a1a',
           color: '#fff',
@@ -174,60 +178,61 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
       });
 
       try {
-          // JALUR PALING AMAN: Tembak via Proxy AllOrigins Raw
-          const targetApi = `https://doodapi.com/api/upload/server?key=${DOOD_API_KEY}`;
-          const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetApi)}`;
-          
+          const apiUrl = `https://doodapi.com/api/upload/server?key=${DOOD_API_KEY}`;
           let serverUrl = '';
-          const res = await fetch(proxyUrl);
-          const data = await res.json();
-          
-          if (data.status === 200 && data.result) {
-              serverUrl = data.result;
-          } else {
-              throw new Error("Gagal mendapatkan izin server upload. Cek koneksi internet lu bro.");
+
+          // COBA JALUR 1: AllOrigins Get (Parsing Teks)
+          try {
+              const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(apiUrl)}`);
+              const data = await res.json();
+              const parsed = JSON.parse(data.contents);
+              if (parsed.status === 200) serverUrl = parsed.result;
+          } catch (e1) {
+              // COBA JALUR 2: CorsProxy
+              try {
+                  const res2 = await fetch(`https://corsproxy.io/?${encodeURIComponent(apiUrl)}`);
+                  const data2 = await res2.json();
+                  if (data2.status === 200) serverUrl = data2.result;
+              } catch (e2) {
+                  // JALUR 3: Tembak langsung (untuk browser non-strict)
+                  const res3 = await fetch(apiUrl);
+                  const data3 = await res3.json();
+                  if (data3.status === 200) serverUrl = data3.result;
+              }
           }
 
-          (window as any).Swal.update({ title: 'Sedang Mengupload...', text: 'Mengirim file ke DoodStream. Jangan tutup halaman ini!' });
+          if (!serverUrl) throw new Error("Semua jalur koneksi diblokir. Harap matikan DNS/Brave Shield lu bentar.");
+
+          (window as any).Swal.update({ title: 'Sedang Mengupload...', text: 'Mengirim file ke DoodStream...' });
 
           const formDataUpload = new FormData();
           formDataUpload.append('api_key', DOOD_API_KEY);
           formDataUpload.append('file', file);
 
-          // Upload langsung ke server hasil fetch tadi
-          const uploadRes = await fetch(serverUrl, { 
-              method: 'POST', 
-              body: formDataUpload 
-          });
-          
-          if (!uploadRes.ok) throw new Error(`Gagal mengirim file. Status: ${uploadRes.status}`);
-          
+          const uploadRes = await fetch(serverUrl, { method: 'POST', body: formDataUpload });
           const uploadData = await uploadRes.json();
 
           if (uploadData.status === 200 && uploadData.result && uploadData.result[0]) {
               const result = uploadData.result[0];
               
-              // Hitung durasi
               let formattedDuration = '00:00';
-              if (result.length && !isNaN(result.length)) {
-                  const totalSeconds = parseInt(result.length);
-                  const mins = Math.floor(totalSeconds / 60);
-                  const secs = totalSeconds % 60;
-                  formattedDuration = `${mins}:${secs.toString().padStart(2, '0')}`;
+              if (result.length) {
+                  const totalSecs = parseInt(result.length);
+                  formattedDuration = `${Math.floor(totalSecs/60)}:${(totalSecs%60).toString().padStart(2,'0')}`;
               }
 
               setFormData(prev => ({
                   ...prev,
-                  title: prev.title || result.title || file.name.split('.')[0],
+                  title: result.title || file.name.split('.')[0],
                   videoUrl: result.protected_embed || '',
-                  thumbnailUrl: result.single_img || result.splash_img || prev.thumbnailUrl || 'https://via.placeholder.com/400x225/1a1a1a/e50914.png?text=Thumbnail+Proses',
+                  thumbnailUrl: result.single_img || result.splash_img || 'https://via.placeholder.com/400x225/1a1a1a/e50914.png?text=Thumbnail+Proses',
                   duration: formattedDuration
               }));
               
               (window as any).Swal.fire({ title: 'Upload Berhasil!', text: 'Data video otomatis terisi!', icon: 'success', background: '#1a1a1a', color: '#fff', timer: 2500 });
               fetchDoodBalance();
           } else {
-              throw new Error("Respon tidak valid dari sisi DoodStream.");
+              throw new Error("Gagal menerima data hasil upload.");
           }
       } catch (err: any) {
           (window as any).Swal.fire({ title: 'Gagal Fetch Data', text: err.message, icon: 'error', background: '#1a1a1a', color: '#fff' });
@@ -249,7 +254,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
       setIsDragging(false);
       const file = e.dataTransfer.files?.[0];
       if (file && file.type.startsWith('video/')) processDoodUpload(file);
-      else if (file) showPopup('Format Salah', 'Silakan upload file video (MP4, M4V, dll).', 'error');
   };
 
   const handleSaveVideo = async () => {
@@ -280,10 +284,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
           setIsGenreDropdownOpen(false); 
           showPopup('Berhasil!', `Data video tersimpan.`, 'success'); 
       } else {
-          showPopup('Gagal Menyimpan', res.message || 'Terjadi kesalahan di sisi database.', 'error');
+          showPopup('Gagal Menyimpan', res.message || 'Terjadi kesalahan.', 'error');
       }
     } catch (e: any) { 
-        showPopup('Error Jaringan', 'Gagal menghubungi server. Pastikan API URL benar.', 'error'); 
+        showPopup('Error', 'Gagal menghubungi server.', 'error'); 
     } finally { 
         setIsSubmitting(false); 
     }
@@ -490,7 +494,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
               </h3>
               <div className="space-y-4">
                  
-                 {/* KOTAK DRAG & DROP DOODSTREAM */}
                  <div 
                      className={`p-6 border-2 border-dashed rounded-xl text-center cursor-pointer transition-all ${isDragging ? 'border-[#00a884] bg-[#00a884]/10' : 'border-gray-800 hover:border-gray-600 bg-black'}`}
                      onDragOver={handleDragOver}
@@ -550,7 +553,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                      <textarea placeholder="Description" rows={3} className="w-full bg-black border border-gray-800 rounded-xl pl-12 pr-4 py-3 text-sm outline-none focus:border-primary text-white resize-none" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
                  </div>
                  
-                 {/* UPLOAD THUMBNAIL DENGAN KOMPRESI OTOMATIS */}
                  <div className="p-4 border-2 border-dashed border-gray-800 rounded-xl text-center cursor-pointer hover:border-gray-600 transition-colors" onClick={() => fileInputRef.current?.click()}>
                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={e => {
                         const file = e.target.files?.[0];
@@ -564,15 +566,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                                     const MAX_HEIGHT = 360;
                                     let width = img.width;
                                     let height = img.height;
-
                                     if (width > height) { if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; } } 
                                     else { if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; } }
-                                    
-                                    canvas.width = width;
-                                    canvas.height = height;
+                                    canvas.width = width; canvas.height = height;
                                     const ctx = canvas.getContext('2d');
                                     ctx?.drawImage(img, 0, 0, width, height);
-                                    
                                     setFormData({...formData, thumbnailUrl: canvas.toDataURL('image/jpeg', 0.7)});
                                 };
                                 img.src = event.target?.result as string;
@@ -614,7 +612,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                         </div>
                         <div className="flex flex-col gap-2">
                             <button onClick={() => handleEditVideoClick(v)} className="p-2 bg-gray-900 text-blue-400 rounded-lg hover:bg-blue-500/10 transition-colors"><Edit2 size={14}/></button>
-                            {/* TOMBOL DELETE HANYA MUNCUL UNTUK DEVELOPER */}
                             {isDeveloper && (
                                 <button onClick={() => handleDeleteVideo(v.title)} className="p-2 bg-gray-900 text-red-400 rounded-lg hover:bg-red-500/10 transition-colors"><Trash2 size={14}/></button>
                             )}
@@ -626,7 +623,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
         </div>
       )}
 
-      {/* SISA TAB STORE */}
+      {/* SISA TAB LAINNYA TETAP SAMA */}
       {activeTab === 'store' && availableTabs.includes('store') && (
          <div className="flex flex-col lg:flex-row gap-8">
             <div className="w-full lg:w-1/3 space-y-6">
@@ -645,7 +642,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                     <div className="space-y-4">
                         <div className="relative">
                              <ShoppingBag className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
-                             <input type="text" placeholder={subTabStore === 'tokens' ? "Token Name (e.g. 1000 Tokens)" : "Package Name"} className="w-full bg-black border border-gray-800 rounded-xl pl-12 pr-4 py-3 text-sm outline-none focus:border-primary text-white" value={storeFormData.name} onChange={e => setStoreFormData({...storeFormData, name: e.target.value})} />
+                             <input type="text" placeholder={subTabStore === 'tokens' ? "Token Name" : "Package Name"} className="w-full bg-black border border-gray-800 rounded-xl pl-12 pr-4 py-3 text-sm outline-none focus:border-primary text-white" value={storeFormData.name} onChange={e => setStoreFormData({...storeFormData, name: e.target.value})} />
                         </div>
                         <div className="relative">
                              <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
@@ -655,7 +652,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                             <>
                                 <div className="relative">
                                      <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
-                                     <input type="text" placeholder="Duration (e.g. 1 Month)" className="w-full bg-black border border-gray-800 rounded-xl pl-12 pr-4 py-3 text-sm outline-none focus:border-primary text-white" value={storeFormData.duration} onChange={e => setStoreFormData({...storeFormData, duration: e.target.value})} />
+                                     <input type="text" placeholder="Duration" className="w-full bg-black border border-gray-800 rounded-xl pl-12 pr-4 py-3 text-sm outline-none focus:border-primary text-white" value={storeFormData.duration} onChange={e => setStoreFormData({...storeFormData, duration: e.target.value})} />
                                 </div>
                                 <div className="relative">
                                      <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
@@ -667,12 +664,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                         )}
                         <div className="relative">
                              <Coins className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
-                             <input type="text" placeholder={subTabStore === 'tokens' ? "Exact Token Amount (Number)" : "Token Amount (e.g. Unlimited)"} className="w-full bg-black border border-gray-800 rounded-xl pl-12 pr-4 py-3 text-sm outline-none focus:border-primary text-white" value={storeFormData.tokenAmount} onChange={e => setStoreFormData({...storeFormData, tokenAmount: e.target.value})} />
+                             <input type="text" placeholder="Token Amount" className="w-full bg-black border border-gray-800 rounded-xl pl-12 pr-4 py-3 text-sm outline-none focus:border-primary text-white" value={storeFormData.tokenAmount} onChange={e => setStoreFormData({...storeFormData, tokenAmount: e.target.value})} />
                         </div>
                         {subTabStore === 'packages' && (
                             <div className="relative">
                                  <AlignLeft className="absolute left-4 top-4 text-gray-500" size={16} />
-                                 <textarea placeholder="Description / Perks" rows={3} className="w-full bg-black border border-gray-800 rounded-xl pl-12 pr-4 py-3 text-sm outline-none focus:border-primary text-white resize-none" value={storeFormData.description} onChange={e => setStoreFormData({...storeFormData, description: e.target.value})} />
+                                 <textarea placeholder="Description" rows={3} className="w-full bg-black border border-gray-800 rounded-xl pl-12 pr-4 py-3 text-sm outline-none focus:border-primary text-white resize-none" value={storeFormData.description} onChange={e => setStoreFormData({...storeFormData, description: e.target.value})} />
                             </div>
                         )}
                         <div className="flex gap-2">
@@ -686,7 +683,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                 </div>
             </div>
             <div className="flex-1 bg-gray-900 border border-gray-800 p-8 rounded-[2rem] flex flex-col h-[800px]">
-                <h3 className="text-sm font-black uppercase tracking-widest text-gray-500 mb-6">{subTabStore === 'packages' ? 'Active VIP Packages' : 'Active Token Packages'}</h3>
+                <h3 className="text-sm font-black uppercase tracking-widest text-gray-500 mb-6">Store Packages</h3>
                 <div className="space-y-4 overflow-y-auto custom-scrollbar flex-1 pr-2">
                     {(subTabStore === 'packages' ? storeTypes : storeTokens).map((item, idx) => (
                         <div key={idx} className="flex items-center gap-4 p-6 bg-black border border-gray-800 rounded-2xl group hover:border-gray-700 transition-colors">
@@ -699,7 +696,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                                     <span className="text-xs text-green-500 font-bold">Rp {formatPrice(item.price)}</span>
                                 </div>
                                 <h4 className="font-bold text-lg text-white truncate">{item.name}</h4>
-                                <p className="text-gray-500 text-xs line-clamp-1">{subTabStore === 'packages' ? `${item.description} • ${item.tokenAmount} Tokens` : `Gives ${item.tokenAmount} Tokens directly to balance.`}</p>
                             </div>
                             <div className="flex flex-col gap-2">
                                 <button onClick={() => handleEditStoreClick(item)} className="p-2 bg-gray-900 text-blue-400 rounded-lg hover:bg-blue-500/10 transition-colors"><Edit2 size={16}/></button>
@@ -712,7 +708,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
          </div>
       )}
 
-      {/* SISA TAB GENRES */}
       {activeTab === 'genres' && availableTabs.includes('genres') && (
         <div className="flex flex-col lg:flex-row gap-8">
             <div className="w-full lg:w-1/3 space-y-6">
@@ -724,20 +719,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                     <div className="space-y-4">
                         <div className="relative">
                              <LayoutGrid className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
-                             <input type="text" placeholder="Genre Name (e.g. Action)" className="w-full bg-black border border-gray-800 rounded-xl pl-12 pr-4 py-3 text-sm outline-none focus:border-primary text-white" value={genreInput} onChange={e => setGenreInput(e.target.value)} />
+                             <input type="text" placeholder="Genre Name" className="w-full bg-black border border-gray-800 rounded-xl pl-12 pr-4 py-3 text-sm outline-none focus:border-primary text-white" value={genreInput} onChange={e => setGenreInput(e.target.value)} />
                         </div>
                         <div className="flex gap-2">
                              {editingGenreName && <button onClick={() => { setEditingGenreName(null); setGenreInput(''); }} className="flex-1 bg-gray-800 hover:bg-gray-700 py-4 rounded-xl font-black uppercase text-xs tracking-widest transition-colors">Cancel</button>}
                              <button onClick={handleSaveGenre} className="flex-1 bg-primary hover:bg-red-700 py-4 rounded-xl font-black uppercase text-xs tracking-widest transition-colors flex items-center justify-center gap-2" disabled={isSubmitting}>
                                  {isSubmitting ? <Loader2 className="animate-spin" size={16}/> : <Save size={16}/>}
-                                 {isSubmitting ? 'Syncing...' : (editingGenreName ? 'Update' : 'Add Genre')}
+                                 Syncing...
                              </button>
                         </div>
                     </div>
                 </div>
             </div>
             <div className="flex-1 bg-gray-900 border border-gray-800 p-8 rounded-[2rem] flex flex-col h-[600px]">
-                <h3 className="text-sm font-black uppercase tracking-widest text-gray-500 mb-6">Available Genres</h3>
+                <h3 className="text-sm font-black uppercase tracking-widest text-gray-500 mb-6">Genres</h3>
                 <div className="space-y-3 overflow-y-auto custom-scrollbar flex-1 pr-2">
                     {categories.filter(c => c !== 'All').map((cat, idx) => (
                         <div key={idx} className="flex items-center justify-between p-4 bg-black border border-gray-800 rounded-2xl group hover:border-gray-700 transition-colors">
@@ -758,7 +753,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
         </div>
       )}
 
-      {/* SISA TAB USERS */}
       {activeTab === 'users' && availableTabs.includes('users') && (
         <div className="bg-gray-900 border border-gray-800 rounded-[2.5rem] p-10">
           <div className="flex flex-col items-center mb-6">
@@ -766,12 +760,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
               {isUserFilterOpen && (
                   <div className="w-full max-w-2xl mt-4 bg-black/90 backdrop-blur-xl border border-gray-800 rounded-2xl p-6 shadow-2xl animate-[fadeIn_0.2s_ease-out]">
                       <div className="flex justify-between items-center mb-4">
-                          <h4 className="text-sm font-black uppercase tracking-widest text-gray-500">Filter by Role</h4>
+                          <h4 className="text-sm font-black uppercase tracking-widest text-gray-500">Filter</h4>
                           <button onClick={() => setIsUserFilterOpen(false)} className="text-gray-500 hover:text-white"><X size={16}/></button>
                       </div>
                       <div className="flex flex-wrap gap-2">
                           {['All', 'Free', 'Premium', 'Donatur', 'Talent', 'Admin', 'Developer'].map(role => (
-                              <button key={role} onClick={() => setUserFilterType(role)} className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${userFilterType === role ? 'bg-primary border-primary text-white shadow-lg shadow-primary/25' : 'bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-600 hover:text-white'}`}>{role}</button>
+                              <button key={role} onClick={() => setUserFilterType(role)} className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase transition-all border ${userFilterType === role ? 'bg-primary border-primary text-white' : 'bg-gray-900 border-gray-800 text-gray-400'}`}>{role}</button>
                           ))}
                       </div>
                   </div>
@@ -780,22 +774,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
           <table className="w-full text-left">
             <thead>
                 <tr className="text-gray-500 text-[10px] uppercase font-black border-b border-gray-800">
-                    <th className="pb-4 pl-4">Username / Identity</th><th className="pb-4">Role</th><th className="pb-4">Status</th><th className="pb-4">Tokens</th><th className="pb-4 text-right pr-4">Actions</th>
+                    <th className="pb-4 pl-4">Identity</th><th className="pb-4">Role</th><th className="pb-4">Status</th><th className="pb-4">Tokens</th><th className="pb-4 text-right pr-4">Actions</th>
                 </tr>
             </thead>
             <tbody>
               {filteredUsers.map((u, i) => (
                 <tr key={i} className="border-b border-gray-800/50 hover:bg-white/5 transition-colors">
-                    <td className="py-4 pl-4"><div className="flex flex-col"><span className="font-black text-white text-sm tracking-wide">{u.username}</span><span className="text-[10px] text-gray-500 font-bold uppercase">{u.nickname}</span></div></td>
+                    <td className="py-4 pl-4"><div className="flex flex-col"><span className="font-black text-white text-sm">{u.username}</span><span className="text-[10px] text-gray-500">{u.nickname}</span></div></td>
                     <td className="text-xs text-gray-400 font-bold uppercase">{u.type}</td>
                     <td><span className={`text-[10px] font-black uppercase px-2 py-1 rounded ${u.status === 'Active' ? 'bg-green-900/20 text-green-500' : 'bg-red-900/20 text-red-500'}`}>{u.status}</span></td>
                     <td className="font-bold text-primary">{u.token}</td>
                     <td className="text-right py-4 pr-4">
-                        {isDeveloper ? (
-                            <button className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-white bg-gray-800 px-3 py-1.5 rounded-lg transition-colors" onClick={() => handleEditUser(u)}>Edit</button>
-                        ) : (
-                            <span className="text-[10px] text-gray-600 uppercase font-bold tracking-widest">Hanya Lihat</span>
-                        )}
+                        {isDeveloper ? <button className="text-[10px] font-black uppercase text-gray-400 hover:text-white bg-gray-800 px-3 py-1.5 rounded-lg" onClick={() => handleEditUser(u)}>Edit</button> : 'N/A'}
                     </td>
                 </tr>
               ))}
@@ -804,7 +794,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
         </div>
       )}
 
-      {/* USER EDIT MODAL */}
       {isUserModalOpen && isDeveloper && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsUserModalOpen(false)}></div>
@@ -812,9 +801,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
             <h3 className="text-xl font-black uppercase mb-6 flex items-center gap-2"><User size={24} className="text-primary"/>Edit User: <span className="text-gray-500">{editingUser.username}</span></h3>
             <div className="space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar pr-2">
               <div><label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">Nickname</label><input type="text" className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition-colors" value={editingUser.nickname} onChange={e => setEditingUser({...editingUser, nickname: e.target.value})} /></div>
-              <div><label className="text-[10px] font-black uppercase text-gray-500 mb-1 block flex items-center gap-2"><Lock size={10}/> Password</label><input type="text" className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition-colors" value={editingUser.password} onChange={e => setEditingUser({...editingUser, password: e.target.value})} placeholder="New Password" /></div>
+              <div><label className="text-[10px] font-black uppercase text-gray-500 mb-1 block"><Lock size={10}/> Password</label><input type="text" className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition-colors" value={editingUser.password} onChange={e => setEditingUser({...editingUser, password: e.target.value})} placeholder="New Password" /></div>
               <div className="flex gap-4">
-                  <div className="flex-1"><label className="text-[10px] font-black uppercase text-gray-500 mb-1 block flex items-center gap-2"><Shield size={10}/> Role</label>
+                  <div className="flex-1"><label className="text-[10px] font-black uppercase text-gray-500 mb-1 block"><Shield size={10}/> Role</label>
                     <select className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none" value={editingUser.type} onChange={e => setEditingUser({...editingUser, type: e.target.value})}>
                         <option value="Free">Free</option><option value="Premium">Premium</option><option value="Donatur">Donatur</option><option value="Talent">Talent</option><option value="Admin">Admin</option><option value="Developer">Developer</option>
                     </select>
@@ -825,10 +814,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                     </select>
                   </div>
               </div>
-              <div><label className="text-[10px] font-black uppercase text-gray-500 mb-1 block flex items-center gap-2"><Coins size={10}/> Token Balance</label><input type="text" className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition-colors" value={editingUser.token} onChange={e => setEditingUser({...editingUser, token: e.target.value})} /></div>
+              <div><label className="text-[10px] font-black uppercase text-gray-500 mb-1 block"><Coins size={10}/> Token Balance</label><input type="text" className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition-colors" value={editingUser.token} onChange={e => setEditingUser({...editingUser, token: e.target.value})} /></div>
               <div className="pt-4 flex gap-3">
                   <button className="flex-1 bg-gray-800 hover:bg-gray-700 py-4 rounded-xl font-black uppercase text-xs tracking-widest text-white" onClick={() => setIsUserModalOpen(false)}>Cancel</button>
-                  <button className="flex-1 bg-primary hover:bg-red-700 py-4 rounded-xl font-black uppercase text-xs tracking-widest text-white" onClick={handleSaveUser} disabled={isSubmitting}>{isSubmitting ? 'Syncing...' : 'Save'}</button>
+                  <button className="flex-1 bg-primary hover:bg-red-700 py-4 rounded-xl font-black uppercase text-xs tracking-widest text-white" onClick={handleSaveUser} disabled={isSubmitting}>Save</button>
               </div>
             </div>
           </div>
@@ -839,65 +828,42 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
       {activeTab === 'talents' && availableTabs.includes('talents') && (
         <div className="bg-gray-900 border border-gray-800 rounded-[2.5rem] p-10">
           <div className="flex bg-black p-1 rounded-xl mb-8 border border-gray-800 w-full max-w-3xl mx-auto">
-              <button onClick={() => setSubTabTalent('apps')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${subTabTalent === 'apps' ? 'bg-primary text-white' : 'text-gray-500 hover:text-white'}`}>Pending Applications</button>
-              <button onClick={() => setSubTabTalent('active')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${subTabTalent === 'active' ? 'bg-primary text-white' : 'text-gray-500 hover:text-white'}`}>Active Talents</button>
-              <button onClick={() => setSubTabTalent('history')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${subTabTalent === 'history' ? 'bg-primary text-white' : 'text-gray-500 hover:text-white'}`}>Riwayat Chat</button>
-              <button onClick={() => setSubTabTalent('balance')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${subTabTalent === 'balance' ? 'bg-primary text-white' : 'text-gray-500 hover:text-white'}`}>Balance Admin</button>
+              <button onClick={() => setSubTabTalent('apps')} className={`flex-1 py-3 text-[10px] font-black uppercase rounded-lg transition-all ${subTabTalent === 'apps' ? 'bg-primary text-white' : 'text-gray-500'}`}>Applications</button>
+              <button onClick={() => setSubTabTalent('active')} className={`flex-1 py-3 text-[10px] font-black uppercase rounded-lg transition-all ${subTabTalent === 'active' ? 'bg-primary text-white' : 'text-gray-500'}`}>Active</button>
+              <button onClick={() => setSubTabTalent('history')} className={`flex-1 py-3 text-[10px] font-black uppercase rounded-lg transition-all ${subTabTalent === 'history' ? 'bg-primary text-white' : 'text-gray-500'}`}>History</button>
+              <button onClick={() => setSubTabTalent('balance')} className={`flex-1 py-3 text-[10px] font-black uppercase rounded-lg transition-all ${subTabTalent === 'balance' ? 'bg-primary text-white' : 'text-gray-500'}`}>Revenue</button>
           </div>
 
           {subTabTalent === 'balance' && (
-              <div className="bg-gradient-to-br from-green-600 to-emerald-800 rounded-3xl p-10 shadow-2xl text-center relative overflow-hidden max-w-2xl mx-auto mt-10 animate-[scaleIn_0.2s_ease-out]">
+              <div className="bg-gradient-to-br from-green-600 to-emerald-800 rounded-3xl p-10 shadow-2xl text-center relative overflow-hidden max-w-2xl mx-auto mt-10">
                   <div className="absolute top-0 right-0 p-4 opacity-20"><Wallet size={120}/></div>
-                  <h3 className="text-sm font-black uppercase text-green-200 tracking-widest mb-2 relative z-10">Total Admin Revenue (20% Split)</h3>
-                  <div className="text-6xl md:text-7xl font-black text-white mb-8 drop-shadow-lg relative z-10 flex justify-center items-end gap-2">
-                      {formatPrice(adminBalance)} <span className="text-xl md:text-2xl mb-2">Tokens</span>
+                  <h3 className="text-sm font-black uppercase text-green-200 mb-2 relative z-10">Total Revenue</h3>
+                  <div className="text-6xl md:text-7xl font-black text-white mb-8 relative z-10">
+                      {formatPrice(adminBalance)} <span className="text-xl">Tokens</span>
                   </div>
               </div>
           )}
 
           {subTabTalent === 'history' && selectedHistorySession ? (
-              <div className="bg-black border border-gray-800 rounded-3xl overflow-hidden flex flex-col h-[700px] animate-[fadeIn_0.2s_ease-out]">
-                  <div className="bg-gray-900 p-4 flex justify-between items-center border-b border-gray-800 shrink-0">
-                      <button onClick={() => setSelectedHistorySession(null)} className="text-gray-400 hover:text-white p-2 rounded-full hover:bg-gray-800 transition-colors"><ChevronLeft size={24}/></button>
-                      <div className="text-center">
-                          <h3 className="text-white font-bold text-lg">{selectedHistorySession.user_username} &amp; {selectedHistorySession.talent_username}</h3>
-                          <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 bg-gray-800 px-2 py-1 rounded-md">{selectedHistorySession.session_id}</span>
-                      </div>
+              <div className="bg-black border border-gray-800 rounded-3xl overflow-hidden flex flex-col h-[700px]">
+                  <div className="bg-gray-900 p-4 flex justify-between border-b border-gray-800">
+                      <button onClick={() => setSelectedHistorySession(null)} className="text-gray-400 hover:text-white p-2 rounded-full"><ChevronLeft size={24}/></button>
+                      <h3 className="text-white font-bold text-lg">{selectedHistorySession.user_username} vs {selectedHistorySession.talent_username}</h3>
                       <div className="w-10"></div>
                   </div>
                   <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-[#0b141a]">
-                      {historyMessages.length === 0 ? (
-                          <div className="flex justify-center items-center h-full text-gray-500"><Loader2 className="animate-spin"/></div>
-                      ) : historyMessages.map(msg => {
-                          const isUser = msg.sender_username === selectedHistorySession.user_username;
-                          return (
-                              <div key={msg.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-                                  <div className={`max-w-[75%] rounded-lg p-3 shadow-md relative ${isUser ? 'bg-[#005c4b] rounded-tr-none' : 'bg-[#202c33] rounded-tl-none'}`}>
-                                      <div className="text-[10px] text-yellow-500 font-bold mb-2 uppercase tracking-widest">{msg.sender_username}</div>
-                                      {msg.media_url && (
-                                          <div className="mb-2">
-                                              {msg.media_type === 'video' ? <video src={msg.media_url} controls className="max-w-xs rounded-lg" /> : <img src={msg.media_url} className="max-w-xs rounded-lg" />}
-                                              {msg.is_view_once && <div className="text-[9px] text-red-500 font-black mt-1.5 uppercase tracking-widest flex items-center gap-1"><EyeOff size={10}/> VIEW ONCE MEDIA (ADMIN BYPASS)</div>}
-                                          </div>
-                                      )}
-                                      {msg.message && <p className="text-[#e9edef] text-[14px] leading-relaxed break-words">{msg.message}</p>}
-                                      <div className="text-[10px] text-[#8696a0] text-right mt-1">{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                                  </div>
+                      {historyMessages.length === 0 ? <div className="flex justify-center h-full items-center"><Loader2 className="animate-spin"/></div> : historyMessages.map(msg => (
+                          <div key={msg.id} className={`flex ${msg.sender_username === selectedHistorySession.user_username ? 'justify-end' : 'justify-start'}`}>
+                              <div className={`max-w-[75%] rounded-lg p-3 ${msg.sender_username === selectedHistorySession.user_username ? 'bg-[#005c4b]' : 'bg-[#202c33]'}`}>
+                                  {msg.media_url && <div className="mb-2">{msg.media_type === 'video' ? <video src={msg.media_url} controls className="max-w-xs" /> : <img src={msg.media_url} className="max-w-xs" />}</div>}
+                                  {msg.message && <p className="text-[#e9edef] text-[14px] leading-relaxed">{msg.message}</p>}
                               </div>
-                          );
-                      })}
+                          </div>
+                      ))}
                   </div>
                   <div className="p-6 bg-gray-900 border-t border-gray-800 shrink-0 space-y-3">
-                      {!selectedHistorySession.is_paid && (
-                          <button onClick={() => handleConfirmSalary(selectedHistorySession.session_id)} disabled={isSubmitting} className="w-full bg-green-600 hover:bg-green-700 text-white font-black py-4 rounded-xl flex items-center justify-center gap-2 uppercase tracking-widest transition-all shadow-lg">
-                              {isSubmitting ? <Loader2 className="animate-spin" size={20}/> : <Coins size={20}/>}
-                              Konfirmasi Gaji (80% Talent / 20% Admin)
-                          </button>
-                      )}
-                      <button onClick={() => handleBurnChat(selectedHistorySession.session_id)} disabled={isSubmitting} className="w-full bg-red-600 hover:bg-red-700 text-white font-black py-4 rounded-xl flex items-center justify-center gap-2 uppercase tracking-widest transition-all">
-                          {isSubmitting ? <Loader2 className="animate-spin" size={20}/> : <Flame size={20}/>}
-                          Hapus Permanen Chat (Burn On)
-                      </button>
+                      {!selectedHistorySession.is_paid && <button onClick={() => handleConfirmSalary(selectedHistorySession.session_id)} className="w-full bg-green-600 hover:bg-green-700 text-white font-black py-4 rounded-xl uppercase tracking-widest">Confirm Salary</button>}
+                      <button onClick={() => handleBurnChat(selectedHistorySession.session_id)} className="w-full bg-red-600 hover:bg-red-700 text-white font-black py-4 rounded-xl uppercase tracking-widest">Burn Data</button>
                   </div>
               </div>
           ) : (
@@ -905,35 +871,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
               <table className="w-full text-left">
                 <thead>
                     <tr className="text-gray-500 text-[10px] uppercase font-black border-b border-gray-800">
-                        {subTabTalent === 'history' ? (
-                            <>
-                                <th className="pb-4 pl-4">Session Info</th><th className="pb-4">Tarif</th><th className="pb-4">Waktu Mulai</th><th className="pb-4 text-right pr-4">Aksi</th>
-                            </>
-                        ) : (
-                            <>
-                                <th className="pb-4 pl-4">Talent Profile</th><th className="pb-4">Rate (Token)</th><th className="pb-4">Status / Balance</th><th className="pb-4 text-right pr-4">Actions</th>
-                            </>
-                        )}
+                        <th className="pb-4 pl-4">Profile/Session</th><th className="pb-4">Rate/Tarif</th><th className="pb-4">Status</th><th className="pb-4 text-right pr-4">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                   {(subTabTalent === 'apps' ? talentApps : subTabTalent === 'active' ? activeTalents : endedSessions).map((t, i) => (
                     <tr key={i} className="border-b border-gray-800/50 hover:bg-white/5 transition-colors">
-                        {subTabTalent === 'history' ? (
-                           <>
-                              <td className="py-4 pl-4"><div className="flex flex-col"><span className="font-black text-white text-sm tracking-wide">{t.user_username} vs {t.talent_username}</span><span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">{t.session_id}</span></div></td>
-                              <td className="font-bold text-yellow-500">{formatPrice(t.tarif)} T</td>
-                              <td className="text-xs text-gray-400 font-bold">{new Date(t.started_at).toLocaleString('id-ID')}</td>
-                              <td className="text-right py-4 pr-4"><button onClick={() => setSelectedHistorySession(t)} className="text-[10px] font-black uppercase text-primary hover:text-white bg-primary/10 hover:bg-primary px-4 py-2 rounded-lg transition-colors border border-primary/20">Lihat Chat</button></td>
-                           </>
-                        ) : (
-                           <>
-                              <td className="py-4 pl-4"><div className="flex items-center gap-3"><img src={t.foto || 'https://picsum.photos/100'} className="w-10 h-10 rounded-full object-cover border border-gray-700" /><div className="flex flex-col"><div className="flex items-center gap-1"><span className="font-black text-white text-sm tracking-wide">{t.name}</span>{t.gender === 'Pria' ? <span className="text-blue-400 text-sm">♂</span> : <span className="text-pink-400 text-sm">♀</span>}</div><span className="text-[10px] text-gray-500 font-bold">@{t.username}</span></div></div></td>
-                              <td className="font-bold text-yellow-500">{formatPrice(t.tokenRate)} Tokens</td>
-                              <td>{subTabTalent === 'apps' ? <span className="text-[10px] font-black uppercase px-2 py-1 rounded bg-yellow-900/20 text-yellow-500">PENDING</span> : <span className="text-sm font-black text-green-500">{formatPrice(t.balance)} Tokens</span>}</td>
-                              <td className="text-right py-4 pr-4">{subTabTalent === 'apps' ? <div className="flex justify-end gap-2"><button onClick={() => handleApproveTalent(t.username)} className="p-2 bg-green-500/10 text-green-500 rounded-lg hover:bg-green-500 hover:text-white transition-all"><CheckCircle size={16}/></button><button onClick={() => handleRejectTalent(t.username)} className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all"><X size={16}/></button></div> : <button className="text-[10px] font-black uppercase text-gray-400 bg-gray-800 px-3 py-1.5 rounded-lg">Active</button>}</td>
-                           </>
-                        )}
+                        <td className="py-4 pl-4">
+                            {subTabTalent === 'history' ? <div className="flex flex-col font-black text-white text-sm">{t.user_username} vs {t.talent_username}<span className="text-[9px] text-gray-500">{t.session_id}</span></div> :
+                            <div className="flex items-center gap-3"><img src={t.foto} className="w-10 h-10 rounded-full" /><div className="font-black text-white text-sm">{t.name}</div></div>}
+                        </td>
+                        <td className="font-bold text-yellow-500">{formatPrice(t.tokenRate || t.tarif)} T</td>
+                        <td><span className="text-[10px] font-black uppercase text-green-500">{t.status || (t.is_paid ? 'PAID' : 'UNPAID')}</span></td>
+                        <td className="text-right py-4 pr-4">
+                            {subTabTalent === 'apps' ? <div className="flex justify-end gap-2"><button onClick={() => handleApproveTalent(t.username)} className="text-green-500 p-2"><CheckCircle size={16}/></button><button onClick={() => handleRejectTalent(t.username)} className="text-red-500 p-2"><X size={16}/></button></div> :
+                            <button onClick={() => subTabTalent === 'history' ? setSelectedHistorySession(t) : null} className="text-[10px] font-black uppercase text-primary bg-primary/10 px-3 py-1.5 rounded-lg">{subTabTalent === 'history' ? 'View' : 'Active'}</button>}
+                        </td>
                     </tr>
                   ))}
                 </tbody>
@@ -942,7 +895,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
           )}
         </div>
       )}
-
     </div>
   );
 };

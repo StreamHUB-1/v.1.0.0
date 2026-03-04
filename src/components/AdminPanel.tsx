@@ -84,31 +84,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
     ? ['videos', 'genres', 'users', 'store', 'talents'] 
     : ['videos', 'genres', 'users'];
 
-  // FUNGSI NARIK DOODSTREAM BALANCE (HYBRID PROXY)
+  // FUNGSI NARIK DOODSTREAM BALANCE (PROXY ANTI-BADAI)
   const fetchDoodBalance = async () => {
       setIsLoadingBalance(true);
       try {
-          // Kita pake AllOrigins tapi versi raw supaya ga kena block CORS browser
           const targetUrl = `https://doodapi.com/api/account/info?key=${DOOD_API_KEY}`;
-          const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-          
-          const res = await fetch(proxyUrl);
-          const data = await res.json();
+          // Jalur Utama: CodeTabs (Paling stabil)
+          let res = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`);
+          let data = await res.json();
           
           if (data.status === 200 && data.result) {
-              // Menampilkan saldo sesuai yang ada di dashboard lu
-              setDoodBalance(data.result.balance); 
+              setDoodBalance(data.result.balance);
           }
       } catch (e) {
-          console.error("Gagal sinkron saldo:", e);
-          // Jalur cadangan terakhir pake corsproxy.io
           try {
-            const res2 = await fetch(`https://corsproxy.io/?https://doodapi.com/api/account/info?key=${DOOD_API_KEY}`);
-            const data2 = await res2.json();
-            if (data2.status === 200) setDoodBalance(data2.result.balance);
-          } catch(err) {
-            console.log("Semua jalur proxy gagal.");
-          }
+              // Jalur Cadangan: AllOrigins Raw
+              const targetUrl = `https://doodapi.com/api/account/info?key=${DOOD_API_KEY}`;
+              let res2 = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`);
+              let data2 = await res2.json();
+              if (data2.status === 200) setDoodBalance(data2.result.balance);
+          } catch(err) { console.error("Semua proxy gagal narik saldo."); }
       } finally {
           setIsLoadingBalance(false);
       }
@@ -186,27 +181,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
           const apiUrl = `https://doodapi.com/api/upload/server?key=${DOOD_API_KEY}`;
           let serverUrl = '';
 
-          // COBA JALUR 1: AllOrigins Get (Parsing Teks)
+          // COBA JALUR 1: CodeTabs (Anti Block)
           try {
-              const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(apiUrl)}`);
+              const res = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(apiUrl)}`);
               const data = await res.json();
-              const parsed = JSON.parse(data.contents);
-              if (parsed.status === 200) serverUrl = parsed.result;
+              if (data.status === 200) serverUrl = data.result;
           } catch (e1) {
-              // COBA JALUR 2: CorsProxy
+              // COBA JALUR 2: AllOrigins Raw
               try {
-                  const res2 = await fetch(`https://corsproxy.io/?${encodeURIComponent(apiUrl)}`);
+                  const res2 = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`);
                   const data2 = await res2.json();
                   if (data2.status === 200) serverUrl = data2.result;
               } catch (e2) {
-                  // JALUR 3: Tembak langsung (untuk browser non-strict)
-                  const res3 = await fetch(apiUrl);
-                  const data3 = await res3.json();
-                  if (data3.status === 200) serverUrl = data3.result;
+                  throw new Error("Semua jalur koneksi diblokir. Harap matikan DNS/Brave Shield lu bentar.");
               }
           }
 
-          if (!serverUrl) throw new Error("Semua jalur koneksi diblokir. Harap matikan DNS/Brave Shield lu bentar.");
+          if (!serverUrl) throw new Error("Gagal mendapat server upload.");
 
           (window as any).Swal.update({ title: 'Sedang Mengupload...', text: 'Mengirim file ke DoodStream...' });
 
@@ -214,21 +205,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
           formDataUpload.append('api_key', DOOD_API_KEY);
           formDataUpload.append('file', file);
 
+          // Tembak upload ke server DoodStream
           const uploadRes = await fetch(serverUrl, { method: 'POST', body: formDataUpload });
+          
+          if (!uploadRes.ok) throw new Error(`Gagal mengirim file. Status: ${uploadRes.status}`);
+
           const uploadData = await uploadRes.json();
 
           if (uploadData.status === 200 && uploadData.result && uploadData.result[0]) {
               const result = uploadData.result[0];
               
               let formattedDuration = '00:00';
-              if (result.length) {
+              if (result.length && !isNaN(result.length)) {
                   const totalSecs = parseInt(result.length);
                   formattedDuration = `${Math.floor(totalSecs/60)}:${(totalSecs%60).toString().padStart(2,'0')}`;
               }
 
               setFormData(prev => ({
                   ...prev,
-                  title: result.title || file.name.split('.')[0],
+                  title: prev.title || result.title || file.name.split('.')[0],
                   videoUrl: result.protected_embed || '',
                   thumbnailUrl: result.single_img || result.splash_img || 'https://via.placeholder.com/400x225/1a1a1a/e50914.png?text=Thumbnail+Proses',
                   duration: formattedDuration
@@ -240,7 +235,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
               throw new Error("Gagal menerima data hasil upload.");
           }
       } catch (err: any) {
-          (window as any).Swal.fire({ title: 'Gagal Fetch Data', text: err.message, icon: 'error', background: '#1a1a1a', color: '#fff' });
+          (window as any).Swal.fire({ 
+              title: 'Koneksi Diblokir Browser!', 
+              text: "Browser lu ngeblokir API. MATIKAN BRAVE SHIELD (Logo Singa) di atas atau pakai Chrome biasa.", 
+              icon: 'error', background: '#1a1a1a', color: '#fff' 
+          });
       } finally {
           setIsSubmitting(false);
           if (videoInputRef.current) videoInputRef.current.value = '';
@@ -628,7 +627,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
         </div>
       )}
 
-      {/* SISA TAB LAINNYA TETAP SAMA */}
+      {/* SISA TAB STORE */}
       {activeTab === 'store' && availableTabs.includes('store') && (
          <div className="flex flex-col lg:flex-row gap-8">
             <div className="w-full lg:w-1/3 space-y-6">
@@ -713,6 +712,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
          </div>
       )}
 
+      {/* SISA TAB GENRES */}
       {activeTab === 'genres' && availableTabs.includes('genres') && (
         <div className="flex flex-col lg:flex-row gap-8">
             <div className="w-full lg:w-1/3 space-y-6">
@@ -758,6 +758,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
         </div>
       )}
 
+      {/* SISA TAB USERS */}
       {activeTab === 'users' && availableTabs.includes('users') && (
         <div className="bg-gray-900 border border-gray-800 rounded-[2.5rem] p-10">
           <div className="flex flex-col items-center mb-6">
@@ -799,6 +800,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
         </div>
       )}
 
+      {/* MODAL EDIT USER */}
       {isUserModalOpen && isDeveloper && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsUserModalOpen(false)}></div>

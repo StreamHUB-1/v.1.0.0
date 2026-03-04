@@ -88,8 +88,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
   const fetchDoodBalance = async () => {
       setIsLoadingBalance(true);
       try {
-          const targetUrl = `https://doodapi.co/api/account/info?key=${DOOD_API_KEY}`;
-          const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+          const targetUrl = `https://doodapi.com/api/account/info?key=${DOOD_API_KEY}`;
+          const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
           
           const res = await fetch(proxyUrl);
           const data = await res.json();
@@ -157,6 +157,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
     } catch (e: any) { showPopup('Error', e.message || 'Error occurred.', 'error'); } finally { setIsSubmitting(false); }
   };
 
+  // ============================================================
+  // PROSES UPLOAD DOODSTREAM (JALUR ANTI-BLOCK)
+  // ============================================================
   const processDoodUpload = async (file: File) => {
       if (!file) return;
       setIsSubmitting(true);
@@ -171,35 +174,28 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
       });
 
       try {
-          const doodApiUrl = `https://doodapi.co/api/upload/server?key=${DOOD_API_KEY}`;
-          const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(doodApiUrl)}`;
+          // JALUR PALING AMAN: Tembak via Proxy AllOrigins Raw
+          const targetApi = `https://doodapi.com/api/upload/server?key=${DOOD_API_KEY}`;
+          const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetApi)}`;
           
           let serverUrl = '';
-          try {
-              const res = await fetch(proxyUrl);
-              const data = await res.json();
-              if (data.status === 200 && data.result) {
-                  serverUrl = data.result;
-              } else {
-                  throw new Error("Server DoodStream menolak request.");
-              }
-          } catch (e) {
-              const fallbackRes = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(doodApiUrl)}`);
-              const fallbackData = await fallbackRes.json();
-              if (fallbackData.status === 200) serverUrl = fallbackData.result;
+          const res = await fetch(proxyUrl);
+          const data = await res.json();
+          
+          if (data.status === 200 && data.result) {
+              serverUrl = data.result;
+          } else {
+              throw new Error("Gagal mendapatkan izin server upload. Cek koneksi internet lu bro.");
           }
 
-          if (!serverUrl) throw new Error("Gagal mendapat izin server DoodStream. Pastikan API Key valid.");
-
-          (window as any).Swal.update({ title: 'Sedang Mengupload...', text: 'Mengirim file video. Jangan tutup jendela ini.' });
+          (window as any).Swal.update({ title: 'Sedang Mengupload...', text: 'Mengirim file ke DoodStream. Jangan tutup halaman ini!' });
 
           const formDataUpload = new FormData();
           formDataUpload.append('api_key', DOOD_API_KEY);
           formDataUpload.append('file', file);
 
-          const uploadLink = `${serverUrl}?${DOOD_API_KEY}`;
-
-          const uploadRes = await fetch(uploadLink, { 
+          // Upload langsung ke server hasil fetch tadi
+          const uploadRes = await fetch(serverUrl, { 
               method: 'POST', 
               body: formDataUpload 
           });
@@ -208,9 +204,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
           
           const uploadData = await uploadRes.json();
 
-          if (uploadData.status === 200 && uploadData.result && uploadData.result.length > 0) {
+          if (uploadData.status === 200 && uploadData.result && uploadData.result[0]) {
               const result = uploadData.result[0];
               
+              // Hitung durasi
               let formattedDuration = '00:00';
               if (result.length && !isNaN(result.length)) {
                   const totalSeconds = parseInt(result.length);
@@ -227,12 +224,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                   duration: formattedDuration
               }));
               
-              (window as any).Swal.fire({ title: 'Upload Berhasil!', text: 'Data telah diisi otomatis!', icon: 'success', background: '#1a1a1a', color: '#fff', timer: 2500 });
-              
-              // REFRESH BALANCE SETELAH UPLOAD SUKSES
+              (window as any).Swal.fire({ title: 'Upload Berhasil!', text: 'Data video otomatis terisi!', icon: 'success', background: '#1a1a1a', color: '#fff', timer: 2500 });
               fetchDoodBalance();
           } else {
-              throw new Error("Respon tidak valid dari sisi DoodStream");
+              throw new Error("Respon tidak valid dari sisi DoodStream.");
           }
       } catch (err: any) {
           (window as any).Swal.fire({ title: 'Gagal Fetch Data', text: err.message, icon: 'error', background: '#1a1a1a', color: '#fff' });
@@ -631,7 +626,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
         </div>
       )}
 
-      {/* SISA TAB LAINNYA TETAP SAMA NAMUN HANYA DIRENDER JIKA TERMASUK DALAM availableTabs */}
+      {/* SISA TAB STORE */}
       {activeTab === 'store' && availableTabs.includes('store') && (
          <div className="flex flex-col lg:flex-row gap-8">
             <div className="w-full lg:w-1/3 space-y-6">
@@ -714,9 +709,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                     ))}
                 </div>
             </div>
-        </div>
+         </div>
       )}
 
+      {/* SISA TAB GENRES */}
       {activeTab === 'genres' && availableTabs.includes('genres') && (
         <div className="flex flex-col lg:flex-row gap-8">
             <div className="w-full lg:w-1/3 space-y-6">
@@ -751,7 +747,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                             </div>
                             <div className="flex gap-2">
                                 <button onClick={() => { setEditingGenreName(cat); setGenreInput(cat); window.scrollTo({top:0, behavior:'smooth'}); }} className="p-2 bg-gray-900 text-blue-400 rounded-lg hover:bg-blue-500/10 transition-colors"><Edit2 size={16}/></button>
-                                {/* TOMBOL HAPUS GENRE HANYA UNTUK DEVELOPER */}
                                 {isDeveloper && (
                                     <button onClick={() => handleDeleteGenre(cat)} className="p-2 bg-gray-900 text-red-400 rounded-lg hover:bg-red-500/10 transition-colors"><Trash2 size={16}/></button>
                                 )}
@@ -763,6 +758,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
         </div>
       )}
 
+      {/* SISA TAB USERS */}
       {activeTab === 'users' && availableTabs.includes('users') && (
         <div className="bg-gray-900 border border-gray-800 rounded-[2.5rem] p-10">
           <div className="flex flex-col items-center mb-6">
@@ -808,6 +804,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
         </div>
       )}
 
+      {/* USER EDIT MODAL */}
       {isUserModalOpen && isDeveloper && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsUserModalOpen(false)}></div>
@@ -838,12 +835,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
         </div>
       )}
 
-      {/* ======================================================= */}
-      {/* MENU TALENT & RIWAYAT CHAT (ADMIN) */}
-      {/* ======================================================= */}
+      {/* TAB TALENTS */}
       {activeTab === 'talents' && availableTabs.includes('talents') && (
         <div className="bg-gray-900 border border-gray-800 rounded-[2.5rem] p-10">
-          
           <div className="flex bg-black p-1 rounded-xl mb-8 border border-gray-800 w-full max-w-3xl mx-auto">
               <button onClick={() => setSubTabTalent('apps')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${subTabTalent === 'apps' ? 'bg-primary text-white' : 'text-gray-500 hover:text-white'}`}>Pending Applications</button>
               <button onClick={() => setSubTabTalent('active')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${subTabTalent === 'active' ? 'bg-primary text-white' : 'text-gray-500 hover:text-white'}`}>Active Talents</button>
@@ -851,7 +845,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
               <button onClick={() => setSubTabTalent('balance')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${subTabTalent === 'balance' ? 'bg-primary text-white' : 'text-gray-500 hover:text-white'}`}>Balance Admin</button>
           </div>
 
-          {/* TAB BALANCE ADMIN (BARU) */}
           {subTabTalent === 'balance' && (
               <div className="bg-gradient-to-br from-green-600 to-emerald-800 rounded-3xl p-10 shadow-2xl text-center relative overflow-hidden max-w-2xl mx-auto mt-10 animate-[scaleIn_0.2s_ease-out]">
                   <div className="absolute top-0 right-0 p-4 opacity-20"><Wallet size={120}/></div>
@@ -859,15 +852,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                   <div className="text-6xl md:text-7xl font-black text-white mb-8 drop-shadow-lg relative z-10 flex justify-center items-end gap-2">
                       {formatPrice(adminBalance)} <span className="text-xl md:text-2xl mb-2">Tokens</span>
                   </div>
-                  <p className="text-green-100 text-xs font-bold uppercase tracking-widest relative z-10">Hasil otomatis dari konfirmasi sesi chat talent.</p>
               </div>
           )}
 
-          {/* JIKA ADMIN SEDANG MEMBUKA CHAT TERTENTU DARI RIWAYAT */}
           {subTabTalent === 'history' && selectedHistorySession ? (
               <div className="bg-black border border-gray-800 rounded-3xl overflow-hidden flex flex-col h-[700px] animate-[fadeIn_0.2s_ease-out]">
-                  
-                  {/* HEADER CHAT ADMIN */}
                   <div className="bg-gray-900 p-4 flex justify-between items-center border-b border-gray-800 shrink-0">
                       <button onClick={() => setSelectedHistorySession(null)} className="text-gray-400 hover:text-white p-2 rounded-full hover:bg-gray-800 transition-colors"><ChevronLeft size={24}/></button>
                       <div className="text-center">
@@ -876,8 +865,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                       </div>
                       <div className="w-10"></div>
                   </div>
-
-                  {/* AREA BACA PESAN (GOD MODE) */}
                   <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-[#0b141a]">
                       {historyMessages.length === 0 ? (
                           <div className="flex justify-center items-center h-full text-gray-500"><Loader2 className="animate-spin"/></div>
@@ -887,19 +874,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                               <div key={msg.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
                                   <div className={`max-w-[75%] rounded-lg p-3 shadow-md relative ${isUser ? 'bg-[#005c4b] rounded-tr-none' : 'bg-[#202c33] rounded-tl-none'}`}>
                                       <div className="text-[10px] text-yellow-500 font-bold mb-2 uppercase tracking-widest">{msg.sender_username}</div>
-                                      
                                       {msg.media_url && (
                                           <div className="mb-2">
-                                              {msg.media_type === 'video' ? (
-                                                  <video src={msg.media_url} controls className={`max-w-xs rounded-lg ${msg.is_view_once ? 'border-2 border-red-500/50' : ''}`} />
-                                              ) : (
-                                                  <img src={msg.media_url} className={`max-w-xs rounded-lg ${msg.is_view_once ? 'border-2 border-red-500/50' : ''}`} />
-                                              )}
-                                              {/* LABEL KHUSUS ADMIN JIKA ITU VIEW ONCE */}
+                                              {msg.media_type === 'video' ? <video src={msg.media_url} controls className="max-w-xs rounded-lg" /> : <img src={msg.media_url} className="max-w-xs rounded-lg" />}
                                               {msg.is_view_once && <div className="text-[9px] text-red-500 font-black mt-1.5 uppercase tracking-widest flex items-center gap-1"><EyeOff size={10}/> VIEW ONCE MEDIA (ADMIN BYPASS)</div>}
                                           </div>
                                       )}
-                                      
                                       {msg.message && <p className="text-[#e9edef] text-[14px] leading-relaxed break-words">{msg.message}</p>}
                                       <div className="text-[10px] text-[#8696a0] text-right mt-1">{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                                   </div>
@@ -907,106 +887,53 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ videos, setVideos, categ
                           );
                       })}
                   </div>
-
-                  {/* AREA BUTTON BAWAH */}
                   <div className="p-6 bg-gray-900 border-t border-gray-800 shrink-0 space-y-3">
                       {!selectedHistorySession.is_paid && (
-                          <button onClick={() => handleConfirmSalary(selectedHistorySession.session_id)} disabled={isSubmitting} className="w-full bg-green-600 hover:bg-green-700 text-white font-black py-4 rounded-xl flex items-center justify-center gap-2 uppercase tracking-widest transition-all shadow-lg hover:shadow-green-500/25">
+                          <button onClick={() => handleConfirmSalary(selectedHistorySession.session_id)} disabled={isSubmitting} className="w-full bg-green-600 hover:bg-green-700 text-white font-black py-4 rounded-xl flex items-center justify-center gap-2 uppercase tracking-widest transition-all shadow-lg">
                               {isSubmitting ? <Loader2 className="animate-spin" size={20}/> : <Coins size={20}/>}
-                              {isSubmitting ? 'MEMPROSES...' : 'Konfirmasi Gaji (80% Talent / 20% Admin)'}
+                              Konfirmasi Gaji (80% Talent / 20% Admin)
                           </button>
                       )}
-                      <button onClick={() => handleBurnChat(selectedHistorySession.session_id)} disabled={isSubmitting} className="w-full bg-red-600 hover:bg-red-700 text-white font-black py-4 rounded-xl flex items-center justify-center gap-2 uppercase tracking-widest transition-all shadow-lg hover:shadow-red-500/25">
+                      <button onClick={() => handleBurnChat(selectedHistorySession.session_id)} disabled={isSubmitting} className="w-full bg-red-600 hover:bg-red-700 text-white font-black py-4 rounded-xl flex items-center justify-center gap-2 uppercase tracking-widest transition-all">
                           {isSubmitting ? <Loader2 className="animate-spin" size={20}/> : <Flame size={20}/>}
-                          {isSubmitting ? 'MEMBAKAR DATA...' : 'Hapus Permanen Chat (Burn On)'}
+                          Hapus Permanen Chat (Burn On)
                       </button>
                   </div>
               </div>
           ) : (
-              // TABEL DATA (PENDING / ACTIVE / HISTORY) (Jangan render table jika di tab balance)
               subTabTalent !== 'balance' && (
               <table className="w-full text-left">
                 <thead>
                     <tr className="text-gray-500 text-[10px] uppercase font-black border-b border-gray-800">
                         {subTabTalent === 'history' ? (
                             <>
-                                <th className="pb-4 pl-4">Session Info</th>
-                                <th className="pb-4">Tarif</th>
-                                <th className="pb-4">Waktu Mulai</th>
-                                <th className="pb-4 text-right pr-4">Aksi</th>
+                                <th className="pb-4 pl-4">Session Info</th><th className="pb-4">Tarif</th><th className="pb-4">Waktu Mulai</th><th className="pb-4 text-right pr-4">Aksi</th>
                             </>
                         ) : (
                             <>
-                                <th className="pb-4 pl-4">Talent Profile</th>
-                                <th className="pb-4">Rate (Token)</th>
-                                <th className="pb-4">Status / Balance</th>
-                                <th className="pb-4 text-right pr-4">Actions</th>
+                                <th className="pb-4 pl-4">Talent Profile</th><th className="pb-4">Rate (Token)</th><th className="pb-4">Status / Balance</th><th className="pb-4 text-right pr-4">Actions</th>
                             </>
                         )}
                     </tr>
                 </thead>
                 <tbody>
-                  {subTabTalent === 'apps' && talentApps.length === 0 && <tr><td colSpan={4} className="text-center py-8 text-gray-500 text-xs font-bold uppercase tracking-widest">No pending applications.</td></tr>}
-                  {subTabTalent === 'active' && activeTalents.length === 0 && <tr><td colSpan={4} className="text-center py-8 text-gray-500 text-xs font-bold uppercase tracking-widest">No active talents.</td></tr>}
-                  {subTabTalent === 'history' && endedSessions.length === 0 && <tr><td colSpan={4} className="text-center py-8 text-gray-500 text-xs font-bold uppercase tracking-widest">Belum ada riwayat chat.</td></tr>}
-                  
-                  {subTabTalent === 'history' && endedSessions.map((s, i) => (
-                      <tr key={i} className="border-b border-gray-800/50 hover:bg-white/5 transition-colors">
-                          <td className="py-4 pl-4">
-                              <div className="flex flex-col">
-                                  <span className="font-black text-white text-sm tracking-wide">{s.user_username} <span className="text-gray-600 mx-2">vs</span> {s.talent_username}</span>
-                                  <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">{s.session_id}</span>
-                              </div>
-                          </td>
-                          <td className="font-bold text-yellow-500">{formatPrice(s.tarif)} T</td>
-                          <td className="text-xs text-gray-400 font-bold">{new Date(s.started_at).toLocaleString('id-ID')}</td>
-                          <td className="text-right py-4 pr-4">
-                              <div className="flex items-center justify-end gap-3">
-                                  {s.is_paid ? (
-                                      <span className="text-[10px] bg-green-500/20 text-green-500 px-2 py-1 rounded font-black uppercase">Paid</span>
-                                  ) : (
-                                      <span className="text-[10px] bg-yellow-500/20 text-yellow-500 px-2 py-1 rounded font-black uppercase">Unpaid</span>
-                                  )}
-                                  <button onClick={() => setSelectedHistorySession(s)} className="text-[10px] font-black uppercase tracking-widest text-primary hover:text-white bg-primary/10 hover:bg-primary px-4 py-2 rounded-lg transition-colors border border-primary/20">
-                                      Lihat Chat
-                                  </button>
-                              </div>
-                          </td>
-                      </tr>
-                  ))}
-
-                  {subTabTalent !== 'history' && (subTabTalent === 'apps' ? talentApps : activeTalents).map((t, i) => (
+                  {(subTabTalent === 'apps' ? talentApps : subTabTalent === 'active' ? activeTalents : endedSessions).map((t, i) => (
                     <tr key={i} className="border-b border-gray-800/50 hover:bg-white/5 transition-colors">
-                        <td className="py-4 pl-4">
-                            <div className="flex items-center gap-3">
-                                <img src={t.foto || 'https://picsum.photos/100'} className="w-10 h-10 rounded-full object-cover border border-gray-700" />
-                                <div className="flex flex-col">
-                                    <div className="flex items-center gap-1">
-                                        <span className="font-black text-white text-sm tracking-wide">{t.name}</span>
-                                        {t.gender === 'Pria' ? <span className="text-blue-400 text-sm">♂</span> : <span className="text-pink-400 text-sm">♀</span>}
-                                    </div>
-                                    <span className="text-[10px] text-gray-500 font-bold">@{t.username}</span>
-                                </div>
-                            </div>
-                        </td>
-                        <td className="font-bold text-yellow-500">{formatPrice(t.tokenRate)} Tokens</td>
-                        <td>
-                            {subTabTalent === 'apps' ? (
-                                <span className="text-[10px] font-black uppercase px-2 py-1 rounded bg-yellow-900/20 text-yellow-500">PENDING</span>
-                            ) : (
-                                <span className="text-sm font-black text-green-500">{formatPrice(t.balance)} Tokens</span>
-                            )}
-                        </td>
-                        <td className="text-right py-4 pr-4">
-                            {subTabTalent === 'apps' ? (
-                                <div className="flex justify-end gap-2">
-                                    <button onClick={() => handleApproveTalent(t.username)} className="p-2 bg-green-500/10 text-green-500 rounded-lg hover:bg-green-500 hover:text-white transition-all" disabled={isSubmitting}><CheckCircle size={16}/></button>
-                                    <button onClick={() => handleRejectTalent(t.username)} className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all" disabled={isSubmitting}><X size={16}/></button>
-                                </div>
-                            ) : (
-                                <button className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-white bg-gray-800 px-3 py-1.5 rounded-lg transition-colors">Active</button>
-                            )}
-                        </td>
+                        {subTabTalent === 'history' ? (
+                           <>
+                              <td className="py-4 pl-4"><div className="flex flex-col"><span className="font-black text-white text-sm tracking-wide">{t.user_username} vs {t.talent_username}</span><span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">{t.session_id}</span></div></td>
+                              <td className="font-bold text-yellow-500">{formatPrice(t.tarif)} T</td>
+                              <td className="text-xs text-gray-400 font-bold">{new Date(t.started_at).toLocaleString('id-ID')}</td>
+                              <td className="text-right py-4 pr-4"><button onClick={() => setSelectedHistorySession(t)} className="text-[10px] font-black uppercase text-primary hover:text-white bg-primary/10 hover:bg-primary px-4 py-2 rounded-lg transition-colors border border-primary/20">Lihat Chat</button></td>
+                           </>
+                        ) : (
+                           <>
+                              <td className="py-4 pl-4"><div className="flex items-center gap-3"><img src={t.foto || 'https://picsum.photos/100'} className="w-10 h-10 rounded-full object-cover border border-gray-700" /><div className="flex flex-col"><div className="flex items-center gap-1"><span className="font-black text-white text-sm tracking-wide">{t.name}</span>{t.gender === 'Pria' ? <span className="text-blue-400 text-sm">♂</span> : <span className="text-pink-400 text-sm">♀</span>}</div><span className="text-[10px] text-gray-500 font-bold">@{t.username}</span></div></div></td>
+                              <td className="font-bold text-yellow-500">{formatPrice(t.tokenRate)} Tokens</td>
+                              <td>{subTabTalent === 'apps' ? <span className="text-[10px] font-black uppercase px-2 py-1 rounded bg-yellow-900/20 text-yellow-500">PENDING</span> : <span className="text-sm font-black text-green-500">{formatPrice(t.balance)} Tokens</span>}</td>
+                              <td className="text-right py-4 pr-4">{subTabTalent === 'apps' ? <div className="flex justify-end gap-2"><button onClick={() => handleApproveTalent(t.username)} className="p-2 bg-green-500/10 text-green-500 rounded-lg hover:bg-green-500 hover:text-white transition-all"><CheckCircle size={16}/></button><button onClick={() => handleRejectTalent(t.username)} className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all"><X size={16}/></button></div> : <button className="text-[10px] font-black uppercase text-gray-400 bg-gray-800 px-3 py-1.5 rounded-lg">Active</button>}</td>
+                           </>
+                        )}
                     </tr>
                   ))}
                 </tbody>
